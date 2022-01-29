@@ -71,13 +71,13 @@ demands the agent to traverse from the start node to the end node.
 End (goal) node - The node that the agent is attempting to find a shortest path to, and perhaps traverse to.
 
 ## Node Status Colors
-RED: signifies a closed node
-GREEN: signifies an open node
-BLUE: signifies an invisible barrier
-YELLOW: signifies the original start node if the start node is not static
-WHITE: signifies regular node (default color for a node)
-BLACK: signifies a visible barrier
-PURPLE: signifies a node which is part of the path taken to reach the goal
-ORANGE: signifies the start node
-GREY: for drawing the lines in the graph
-TURQUOISE: signifies the goal node
+- RED: signifies a closed node
+- GREEN: signifies an open node
+- BLUE: signifies an invisible barrier
+- YELLOW: signifies the original start node if the start node is not static
+- WHITE: signifies regular node (default color for a node)
+- BLACK: signifies a visible barrier
+- PURPLE: signifies a node which is part of the path taken to reach the goal
+- ORANGE: signifies the start node
+- GREY: for drawing the lines in the graph
+- TURQUOISE: signifies the goal node
