@@ -70,11 +70,11 @@ import search
 
 '''Global variables.'''
 
-# set WIDTH = 600, ROWS = 40 for what was used during testing
-# for demonstration, rows = 20, width = 400
-WIDTH = 600
-ROWS = 40
-WINDOW = pygame.display.set_mode((WIDTH, WIDTH))
+# DIMNS = (ROWS, WIDTH)
+# set (40, 600) for what was used during testing
+# for demonstration, set (20, 400)
+DIMNS = (40, 600)
+WINDOW = pygame.display.set_mode((DIMNS[1], DIMNS[1]))
 pygame.display.set_caption("A*, LPA*, and D* Lite Pathfinder")
 
 
@@ -82,7 +82,7 @@ pygame.display.set_caption("A*, LPA*, and D* Lite Pathfinder")
 # 2 means 1/2 chance, 3 means 1/3 chance...
 # 1/3 chance per node means the obstacle density is (1/3 * 100) %
 # the barrier random constant should be an integer
-BARRIER_RANDOM_CONSTANT = 4
+BARRIER_RAND_CONST = 4
 
 '''The following are the colors signifying each node status.'''
 
@@ -188,11 +188,16 @@ class Node:
 
 # this defines the grid as a list, which contains inner-lists containing Node instances
 # each inner list contains one row's worth of nodes
-def make_grid(rows, width):
+def make_grid(dimns):
+    rows, width = dimns
+    
+    # equal to the width of a single tile in the graph
+    gap = width // rows
     grid = []
-    gap = width // rows  # equal to the width of a single tile in the graph
+
     for i in range(rows):
         grid.append([])
+
         for j in range(rows):
             node = Node(i, j, gap, rows)
             grid[i].append(node)
@@ -200,43 +205,55 @@ def make_grid(rows, width):
     return grid
 
 # make a copy of the current grid state
-def duplicate_grid(grid, rows, width):
-    dup_grid = make_grid(rows, width)
-    original_start = None
-    original_end = None
+def duplicate_grid(grid, dimns):
+    dup_grid = make_grid(dimns)
+    prev_start = None
+    prev_end = None
+    
     for row in grid:
+        
         for node in row:
             x, y = node.get_pos()
             dup_node = dup_grid[x][y]
             dup_node.color = node.color
+            
             if dup_node.is_start():
-                original_start = dup_node
+                prev_start = dup_node
+            
             elif dup_node.is_end():
-                original_end = dup_node
+                prev_end = dup_node
 
-    return dup_grid, original_start, original_end
+    return dup_grid, prev_start, prev_end
 
 
 # draw grid lines
-def draw_grid(window, rows, width):
+def draw_grid(window, dimns):
+    rows, width = dimns
     gap = width // rows
+
     for i in range(rows):
-        pygame.draw.line(window, GREY, (0, i * gap), (width, i * gap))  # window, color, start point, end point
+        pygame.draw.line(
+            # window, color, start point, end point
+            window, GREY, (0, i * gap), (width, i * gap)
+        )  
+        
         for j in range(rows):
-            pygame.draw.line(window, GREY, (j * gap, 0), (j * gap, width))
+            pygame.draw.line(
+                window, GREY, (j * gap, 0), (j * gap, width)
+            )
 
 
-def draw(window, grid, rows, width):
+def draw(window, grid, dimns):
     window.fill(WHITE)
-    for row in grid:
-        for node in row:
-            node.draw(window)
+    
+    [node.draw(window) for row in grid for node in row]
 
-    draw_grid(window, rows, width)
+    draw_grid(window, dimns)
     pygame.display.update()
 
 
-def get_clicked_pos(pos, rows, width):
+def get_clicked_pos(pos, dimns):
+    rows, width = dimns
     gap = width // rows
     y, x = pos
     row = y // gap
@@ -246,169 +263,245 @@ def get_clicked_pos(pos, rows, width):
 
 # generate barriers that are solely visible
 def generate_barriers(grid, visible_barriers):
-    if visible_barriers:
-        for row in grid:
-            for node in row:
-                if random.randint(1, BARRIER_RANDOM_CONSTANT) == 1:
-                    node.make_visible_barrier()
-    else:
-        for row in grid:
-            for node in row:
-                if random.randint(1, BARRIER_RANDOM_CONSTANT) == 1:
-                    node.make_invisible_barrier()
+    
+    for row in grid:
+
+        for node in row:
+
+            if random.randint(1, BARRIER_RAND_CONST) != 1: continue
+                
+            if visible_barriers: 
+                node.make_visible_barrier()
+            
+            else:
+                node.make_invisible_barrier()
+        
 
 # generate a mix of visible and invisible barriers
 def generate_barriers_mixed(grid):
+    
     for row in grid:
+        
         for node in row:
-            if random.randint(1, BARRIER_RANDOM_CONSTANT) == 1:
-                if random.randint(0, 1) == 1:
-                    node.make_visible_barrier()
-                else:
-                    node.make_invisible_barrier()
+
+            if random.randint(1, BARRIER_RAND_CONST) != 1: continue
+            
+            if random.randint(0, 1) == 1:
+                node.make_visible_barrier()
+            
+            else:
+                node.make_invisible_barrier()
 
 
-# main method - controls reactions to all input
-def start_visualizer(window, rows, width):
-    grid = make_grid(rows, width)
+def handle_left_click(start, end, node, visible_barriers):
+    
+    if not start and not end:
+        start = node
+        start.make_start()
 
+    elif not end and node is not start:
+        end = node
+        end.make_end()
+
+    elif not start and node is not end:
+        start = node
+        start.make_start()
+
+    elif node is not end and node is not start:
+        
+        if visible_barriers:
+            node.make_visible_barrier()
+        
+        else:
+            node.make_invisible_barrier()
+    
+    return (start, end)
+
+
+def handle_right_click(start, end, node):
+    node.reset()
+    
+    if node is start:
+        start = None
+    
+    elif node is end:
+        end = None
+
+    return (start, end)
+
+
+def handle_search_keys(
+        event, grid, start, end, invisible_barriers, dimns, window
+):                
+    [node.update_neighbors(grid) for row in grid for node in row]
+        
+    start.make_start()
+    end.make_end()
+    prev_triple = None
+
+    # do A* without traversal to goal
+    # includes adapting to updates in environment
+    if event.key == pygame.K_1:
+        prev_triple = duplicate_grid(grid, dimns)
+        invisible_barriers = [
+            node for row in grid for node in row 
+            if node.is_invisible_barrier()
+        ]
+        
+        search.perform_a_star(
+            lambda: draw(window, grid, dimns), 
+            grid, start, end, invisible_barriers, False
+        )
+
+    # do A* with traversal to goal
+    elif event.key == pygame.K_2:
+        prev_triple = duplicate_grid(grid, dimns)
+        invisible_barriers = [
+            node for row in grid for node in row 
+            if node.is_invisible_barrier()
+        ]
+
+        search.perform_a_star(
+            lambda: draw(window, grid, dimns), 
+            grid, start, end, invisible_barriers, True
+        )
+
+    # do LPA*
+    elif event.key == pygame.K_3:
+        prev_triple = duplicate_grid(grid, dimns)
+        invisible_barriers = [
+            node for row in grid for node in row 
+            if node.is_invisible_barrier()
+        ]
+
+        search.perform_lpa_star(
+            lambda: draw(window, grid, dimns),
+            grid, start, end, invisible_barriers
+        )
+
+    # do D* Lite
+    elif event.key == pygame.K_4:
+        prev_triple = duplicate_grid(grid, dimns)
+
+        search.perform_d_star_lite(
+            lambda: draw(window, grid, dimns), grid, start, end
+        )
+    
+    return prev_triple, invisible_barriers
+
+
+def handle_prep_keys(
+        event, grid, start, end, prev_triple, visible_barriers, dimns
+):
+    # clear grid
+    if event.key == pygame.K_c:
+        start = None
+        end = None
+        grid = make_grid(dimns)
+
+        # "safe clear" grid - remove everything except barriers, start, and end
+    elif event.key == pygame.K_s:
+        l = lambda n: n.is_open() or n.is_closed() or n.is_path()
+        [node.reset() for row in grid for node in row if l(node)]
+
+    # toggle barrier type (visible or invisible)
+    elif event.key == pygame.K_z:
+        visible_barriers = not visible_barriers
+
+    # generate barriers
+    elif event.key == pygame.K_g:
+        start = None
+        end = None
+        grid = make_grid(dimns)
+        generate_barriers(grid, visible_barriers)
+
+    # generate a mix of invisible and visible barriers
+    elif event.key == pygame.K_m:
+        start = None
+        end = None
+        grid = make_grid(dimns)
+        generate_barriers_mixed(grid)
+
+    # restore grid to original version preceding latest algorithm visualization
+    elif event.key == pygame.K_b:
+        prev_grid, prev_start, prev_end = prev_triple
+        grid = prev_grid
+        start = prev_start
+        end = prev_end
+    
+    return (grid, start, end, visible_barriers)
+
+
+def handle_interaction(
+        event, grid, start, end, prev_triple, visible_barriers, 
+        invisible_barriers, dimns, window
+):
+    pos = pygame.mouse.get_pos()
+    row, col = get_clicked_pos(pos, dimns)
+    node = grid[row][col]
+
+    if pygame.mouse.get_pressed()[0]: # left click
+        start, end = handle_left_click(
+            start, end, node, visible_barriers
+        )
+    
+    elif pygame.mouse.get_pressed()[2]:  # Right click
+        start, end = handle_right_click(start, end, node)
+
+    elif event.type == pygame.KEYDOWN:
+
+        if start and end:
+            results = handle_search_keys(
+                event, grid, start, end, invisible_barriers, 
+                dimns, window
+            )
+            triple, barriers = results
+            prev_triple = triple if triple else prev_triple
+            invisible_barriers = barriers
+        
+        results = handle_prep_keys(
+            event, grid, start, end, prev_triple,
+            visible_barriers, dimns
+        )
+        grid, start, end, visible_barriers = results
+    
+    return (
+        grid, start, end, prev_triple, visible_barriers,
+        invisible_barriers
+    )
+
+
+def main(window, dimns):
+    grid = make_grid(dimns)
     start = None
     end = None
     run = True
     visible_barriers = True
     invisible_barriers = []
-    original_grid = grid
-    original_start = None
-    original_end = None
+    prev_grid = grid
+    prev_start = None
+    prev_end = None
+    prev_triple = (prev_grid, prev_start, prev_end)
 
     while run:
-        draw(window, grid, rows, width)
+        draw(window, grid, dimns)
+
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 run = False
-            pos = pygame.mouse.get_pos()
-            row, col = get_clicked_pos(pos, rows, width)
-            node = grid[row][col]
 
-            if pygame.mouse.get_pressed()[0]:  # Left click
-                if not start and not end:
-                    start = node
-                    start.make_start()
-                elif not end and node is not start:
-                    end = node
-                    end.make_end()
-                elif not start and node is not end:
-                    start = node
-                    start.make_start()
-                elif node is not end and node is not start:
-                    if visible_barriers:
-                        node.make_visible_barrier()
-                    else:
-                        node.make_invisible_barrier()
+            results = handle_interaction(
+                event, grid, start, end, prev_triple, 
+                visible_barriers, invisible_barriers, dimns, window
+            )
 
-            elif pygame.mouse.get_pressed()[2]:  # Right click
-                node.reset()
-                if node is start:
-                    start = None
-                elif node is end:
-                    end = None
-
-            if event.type == pygame.KEYDOWN:
-                if start and end:
-                    for row in grid:
-                        for node in row:
-                            node.update_neighbors(grid)
-                    start.make_start()
-                    end.make_end()
-
-                    # do A* without traversal to goal
-                    # includes adapting to updates in environment
-                    if event.key == pygame.K_1:
-
-                        original_grid, original_start, original_end = duplicate_grid(grid, rows, width)
-
-                        invisible_barriers.clear()
-                        for row in grid:
-                            for node in row:
-                                if node.is_invisible_barrier():
-                                    invisible_barriers.append(node)
-
-                        search.perform_a_star(lambda: draw(window, grid, rows, width), grid, start, end,
-                                       invisible_barriers, False)
-
-                    # do A* with traversal to goal
-                    elif event.key == pygame.K_2:
-                        original_grid, original_start, original_end = duplicate_grid(grid, rows, width)
-
-                        invisible_barriers.clear()
-                        for row in grid:
-                            for node in row:
-                                if node.is_invisible_barrier():
-                                    invisible_barriers.append(node)
-
-                        search.perform_a_star(lambda: draw(window, grid, rows, width), grid, start, end,
-                                       invisible_barriers, True)
-
-
-                    # do LPA*
-                    elif event.key == pygame.K_3:
-                        original_grid, original_start, original_end = duplicate_grid(grid, rows, width)
-
-                        invisible_barriers.clear()
-                        for row in grid:
-                            for node in row:
-                                if node.is_invisible_barrier():
-                                    invisible_barriers.append(node)
-
-                        search.perform_lpa_star(lambda: draw(window, grid, rows, width), grid, start, end, invisible_barriers)
-
-                    # do D* Lite
-                    elif event.key == pygame.K_4:
-                        original_grid, original_start, original_end = duplicate_grid(grid, rows, width)
-
-                        search.perform_d_star_lite(lambda: draw(window, grid, rows, width), grid, start, end)
-
-                    # clear grid
-                if event.key == pygame.K_c:
-                    start = None
-                    end = None
-                    grid = make_grid(rows, width)
-
-                    # "safe clear" grid - remove everything except barriers, start, and end
-                if event.key == pygame.K_s:
-                    for row in grid:
-                        for node in row:
-                            if node.is_open() or node.is_closed() or node.is_path():
-                                node.reset()
-
-                # toggle barrier type (visible or invisible)
-                if event.key == pygame.K_z:
-                    if visible_barriers:
-                        visible_barriers = False
-                    else:
-                        visible_barriers = True
-
-                # generate barriers
-                if event.key == pygame.K_g:
-                    start = None
-                    end = None
-                    grid = make_grid(rows, width)
-                    generate_barriers(grid, visible_barriers)
-
-                # generate a mix of invisible and visible barriers
-                if event.key == pygame.K_m:
-                    start = None
-                    end = None
-                    grid = make_grid(rows, width)
-                    generate_barriers_mixed(grid)
-
-                # restore grid to original version preceding latest algorithm visualization
-                if event.key == pygame.K_b:
-                    grid = original_grid
-                    start = original_start
-                    end = original_end
+            (
+                grid, start, end, prev_triple, visible_barriers,
+                invisible_barriers
+            ) = results
 
     pygame.quit()
 
 
-start_visualizer(WINDOW, ROWS, WIDTH)
+main(WINDOW, DIMNS)
