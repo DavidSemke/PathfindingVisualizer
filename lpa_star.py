@@ -154,7 +154,7 @@ def lpa_star_compute_shortest_path(
 
     if g_dict[end] == float('inf'): return False
     
-    reconstruct_path(start, end, g_dict, draw_func)
+    reconstruct_path(env, g_dict, draw_func)
     end.make_end()
     start.make_start()
          

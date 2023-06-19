@@ -1,5 +1,6 @@
-import pygame
-import random
+import pygame as pg
+import random as rand
+from node import *
 from a_star import perform_a_star
 from lpa_star import perform_lpa_star
 from d_star_lite import perform_d_star_lite
@@ -99,126 +100,14 @@ colors are defined further down.'''
 # set (40, 600) for what was used during testing
 # for demonstration, set (20, 400)
 DIMNS = (40, 600)
-WINDOW = pygame.display.set_mode((DIMNS[1], DIMNS[1]))
-pygame.display.set_caption("A*, LPA*, and D* Lite Pathfinder")
-
+WINDOW = pg.display.set_mode((DIMNS[1], DIMNS[1]))
+pg.display.set_caption("A*, LPA*, and D* Lite Pathfinder")
 
 # determines how likely it is for a node to be generated as a barrier
 # 2 means 1/2 chance, 3 means 1/3 chance...
 # 1/4 chance per node means the obstacle density is (1/4 * 100) %
 # the barrier random constant should be an integer
 BARRIER_RAND_CONST = 4
-
-'''The following are the colors signifying each node status.'''
-
-# signifies a closed node
-RED = (225, 0, 0)
-# signifies an open node 
-GREEN = (0, 255, 0)
-# signifies an invis barrier 
-BLUE = (0, 0, 255)
-# signifies the original start node if the start node is not static 
-YELLOW = (255, 255, 0)
-# signifies regular empty node
-WHITE = (255, 255, 255)
-# signifies a vis barrier 
-BLACK = (0, 0, 0)
-# signifies a node which is part of the path taken to reach the goal
-PURPLE = (128, 0, 128)
-# signifies the start node  
-ORANGE = (255, 165, 0)
-# for drawing the lines in the graph 
-GREY = (128, 128, 128)
-# signifies the goal node 
-TURQUOISE = (64, 224, 208) 
-
-
-'''A class for defining nodes in the graph. f-values, rhs-values, and 
-g-values are stored separately in dictionaries.'''
-class Node:
-    def __init__(self, row, col, width, total_rows):
-        self.row = row
-        self.col = col
-        self.x = row * width
-        self.y = col * width
-        self.color = WHITE
-        self.neighbors = []
-        self.width = width
-        self.total_rows = total_rows
-
-    def get_pos(self):
-        return self.row, self.col
-
-    def is_closed(self):
-        return self.color == RED
-
-    def is_open(self):
-        return self.color == GREEN
-
-    def is_vis_barrier(self):
-        return self.color == BLACK
-
-    def is_invis_barrier(self):
-        return self.color == BLUE
-
-    def is_start(self):
-        return self.color == ORANGE
-
-    def is_original_start(self):
-        return self.color == YELLOW
-
-    def is_end(self):
-        return self.color == TURQUOISE
-
-    def is_path(self):
-        return self.color == PURPLE
-
-    def reset(self):
-        self.color = WHITE
-
-    def make_start(self):
-        self.color = ORANGE
-
-    def make_original_start(self):
-        self.color = YELLOW
-
-    def make_closed(self):
-        self.color = RED
-
-    def make_open(self):
-        self.color = GREEN
-
-    def make_vis_barrier(self):
-        self.color = BLACK
-
-    def make_invis_barrier(self):
-        self.color = BLUE
-
-    def make_end(self):
-        self.color = TURQUOISE
-
-    def make_path(self):
-        self.color = PURPLE
-
-    def draw(self, window):
-        pygame.draw.rect(window, self.color, (self.x, self.y, self.width, self.width))
-
-    def update_neighbors(self, grid):
-        self.neighbors = []
-        if self.row < self.total_rows - 1 and not grid[self.row + 1][self.col].is_vis_barrier():  # DOWN
-            self.neighbors.append(grid[self.row + 1][self.col])
-
-        if self.row > 0 and not grid[self.row - 1][self.col].is_vis_barrier():  # UP
-            self.neighbors.append(grid[self.row - 1][self.col])
-
-        if self.col < self.total_rows - 1 and not grid[self.row][self.col + 1].is_vis_barrier():  # RIGHT
-            self.neighbors.append(grid[self.row][self.col + 1])
-
-        if self.col > 0 and not grid[self.row][self.col - 1].is_vis_barrier():  # LEFT
-            self.neighbors.append(grid[self.row][self.col - 1])
-
-    def __lt__(self, other):
-        return False
 
 
 # this defines the grid as a list, which contains inner-lists 
@@ -268,24 +157,24 @@ def draw_grid(window, dimns):
     gap = width // rows
 
     for i in range(rows):
-        pygame.draw.line(
+        pg.draw.line(
             # window, color, start point, end point
-            window, GREY, (0, i * gap), (width, i * gap)
+            window, colors['grey'], (0, i * gap), (width, i * gap)
         )  
         
         for j in range(rows):
-            pygame.draw.line(
-                window, GREY, (j * gap, 0), (j * gap, width)
+            pg.draw.line(
+                window, colors['grey'], (j * gap, 0), (j * gap, width)
             )
 
 
 def draw(window, grid, dimns):
-    window.fill(WHITE)
+    window.fill(colors['white'])
     
     [node.draw(window) for row in grid for node in row]
 
     draw_grid(window, dimns)
-    pygame.display.update()
+    pg.display.update()
 
 
 def get_clicked_pos(pos, dimns):
@@ -298,15 +187,15 @@ def get_clicked_pos(pos, dimns):
     return row, col
 
 # generate barriers that are solely vis
-def generate_barriers(grid, using_vis_barriers):
+def generate_barriers(grid, barriers_are_vis):
     
     for row in grid:
 
         for node in row:
 
-            if random.randint(1, BARRIER_RAND_CONST) != 1: continue
+            if rand.randint(1, BARRIER_RAND_CONST) != 1: continue
                 
-            if using_vis_barriers: 
+            if barriers_are_vis: 
                 node.make_vis_barrier()
             
             else:
@@ -320,16 +209,16 @@ def generate_barriers_mixed(grid):
         
         for node in row:
 
-            if random.randint(1, BARRIER_RAND_CONST) != 1: continue
+            if rand.randint(1, BARRIER_RAND_CONST) != 1: continue
             
-            if random.randint(0, 1) == 1:
+            if rand.randint(0, 1) == 1:
                 node.make_vis_barrier()
             
             else:
                 node.make_invis_barrier()
 
 
-def handle_left_click(env, node, using_vis_barriers):
+def handle_left_click(env, node, barriers_are_vis):
     grid, start, end = env
     
     if not start and not end:
@@ -346,7 +235,7 @@ def handle_left_click(env, node, using_vis_barriers):
 
     elif node is not end and node is not start:
         
-        if using_vis_barriers:
+        if barriers_are_vis:
             node.make_vis_barrier()
         
         else:
@@ -371,7 +260,7 @@ def handle_right_click(env, node):
 def handle_search_keys(
         event, env, invis_barriers, dimns, window
 ):
-    grid, start, end = env 
+    grid, start, end = env
     
     [node.update_neighbors(grid) for row in grid for node in row]
     
@@ -380,7 +269,7 @@ def handle_search_keys(
     prior_env = None
 
     # do A* without traversal to goal
-    if event.key == pygame.K_1:
+    if event.key == pg.K_1:
         prior_env = duplicate_grid(grid, dimns)
         invis_barriers = [
             node for row in grid for node in row 
@@ -393,7 +282,7 @@ def handle_search_keys(
         )
 
     # do A* with traversal to goal
-    elif event.key == pygame.K_2:
+    elif event.key == pg.K_2:
         prior_env = duplicate_grid(grid, dimns)
         invis_barriers = [
             node for row in grid for node in row 
@@ -406,7 +295,7 @@ def handle_search_keys(
         )
 
     # do LPA*
-    elif event.key == pygame.K_3:
+    elif event.key == pg.K_3:
         prior_env = duplicate_grid(grid, dimns)
         invis_barriers = [
             node for row in grid for node in row 
@@ -419,7 +308,7 @@ def handle_search_keys(
         )
 
     # do D* Lite
-    elif event.key == pygame.K_4:
+    elif event.key == pg.K_4:
         prior_env = duplicate_grid(grid, dimns)
 
         perform_d_star_lite(
@@ -430,35 +319,35 @@ def handle_search_keys(
 
 
 def handle_prep_keys(
-        event, env, prior_env, using_vis_barriers, dimns
+        event, env, prior_env, barriers_are_vis, dimns
 ):
     grid, start, end = env
-    
+
     # clear grid
-    if event.key == pygame.K_c:
+    if event.key == pg.K_c:
         start = None
         end = None
         grid = make_grid(dimns)
 
         # "safe clear" grid - remove everything except barriers, 
         # start, and end
-    elif event.key == pygame.K_s:
+    elif event.key == pg.K_s:
         l = lambda n: n.is_open() or n.is_closed() or n.is_path()
         [node.reset() for row in grid for node in row if l(node)]
 
     # toggle barrier type (vis or invis)
-    elif event.key == pygame.K_z:
-        using_vis_barriers = not using_vis_barriers
+    elif event.key == pg.K_z:
+        barriers_are_vis = not barriers_are_vis
 
     # generate barriers
-    elif event.key == pygame.K_g:
+    elif event.key == pg.K_g:
         start = None
         end = None
         grid = make_grid(dimns)
-        generate_barriers(grid, using_vis_barriers)
+        generate_barriers(grid, barriers_are_vis)
 
     # generate a mix of invis and vis barriers
-    elif event.key == pygame.K_m:
+    elif event.key == pg.K_m:
         start = None
         end = None
         grid = make_grid(dimns)
@@ -466,7 +355,7 @@ def handle_prep_keys(
 
     # restore grid to original version preceding latest algorithm 
     # visualization
-    elif event.key == pygame.K_b:
+    elif event.key == pg.K_b:
         prev_grid, prev_start, prev_end = prior_env
         grid = prev_grid
         start = prev_start
@@ -474,26 +363,26 @@ def handle_prep_keys(
     
     env = (grid, start, end)
     
-    return (env, using_vis_barriers)
+    return (env, barriers_are_vis)
 
 
 def handle_interaction(
-        event, env, prior_env, using_vis_barriers, 
+        event, env, prior_env, barriers_are_vis, 
         invis_barriers, dimns, window
 ):
     grid, start, end = env
 
-    pos = pygame.mouse.get_pos()
+    pos = pg.mouse.get_pos()
     row, col = get_clicked_pos(pos, dimns)
     node = grid[row][col]
 
-    if pygame.mouse.get_pressed()[0]: # left click
-        env = handle_left_click(env, node, using_vis_barriers)
+    if pg.mouse.get_pressed()[0]: # left click
+        env = handle_left_click(env, node, barriers_are_vis)
     
-    elif pygame.mouse.get_pressed()[2]:  # Right click
+    elif pg.mouse.get_pressed()[2]:  # Right click
         env = handle_right_click(env, node)
 
-    elif event.type == pygame.KEYDOWN:
+    elif event.type == pg.KEYDOWN:
 
         if start and end:
             results = handle_search_keys(
@@ -504,11 +393,11 @@ def handle_interaction(
             invis_barriers = barriers
         
         results = handle_prep_keys(
-            event, env, prior_env, using_vis_barriers, dimns
+            event, env, prior_env, barriers_are_vis, dimns
         )
-        env, using_vis_barriers = results
+        env, barriers_are_vis = results
     
-    return (env, prior_env, using_vis_barriers, invis_barriers)
+    return (env, prior_env, barriers_are_vis, invis_barriers)
 
 
 def main(window, dimns):
@@ -516,29 +405,28 @@ def main(window, dimns):
     start = None
     end = None
     run = True
-    using_vis_barriers = True
+    barriers_are_vis = True
     invis_barriers = []
     env = (grid, start, end)
     prior_env = env
 
     while run:
+        grid, _, _ = env
         draw(window, grid, dimns)
 
-        for event in pygame.event.get():
+        for event in pg.event.get():
 
-            if event.type == pygame.QUIT:
+            if event.type == pg.QUIT:
                 run = False
 
             results = handle_interaction(
-                event, env, prior_env, using_vis_barriers, 
+                event, env, prior_env, barriers_are_vis, 
                 invis_barriers, dimns, window
             )
 
-            (
-                env, prior_env, using_vis_barriers, invis_barriers
-            ) = results
+            env, prior_env, barriers_are_vis, invis_barriers = results
 
-    pygame.quit()
+    pg.quit()
 
 
 main(WINDOW, DIMNS)

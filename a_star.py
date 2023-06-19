@@ -104,7 +104,8 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
     open_set_heap = [(0, COUNT, end)]
     COUNT += 1
 
-    # make all invis barriers within range of agent's vision at start position vis
+    # make all invis barriers within range of agent's vision at start 
+    # position vis
     for n in origin.neighbors:
         
         if n.is_invis_barrier():
@@ -135,8 +136,10 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
 
             draw_func()
 
-            # the next step simulates scanning for changes in edge costs
-            # changes to graph can occur one node away from the start node in any direction
+            # the next step simulates scanning for changes in edge 
+            # costs
+            # changes to graph can occur one node away from the start 
+            # node in any direction
             nodes_changed = []
             
             for n in start.neighbors:
@@ -159,8 +162,10 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
 
             if nodes_changed:
                 
-                # note that some code has been omitted here, as the code would not apply to an environment with
-                # solely traversable and not traversable edges (edge is either some constant or infinity)
+                # note that some code has been omitted here, as the 
+                # code would not apply to an environment with
+                # solely traversable and not traversable edges (edge 
+                # is either some constant or infinity)
                 for n in nodes_changed:
                     n.update_neighbors(grid)
                     
@@ -237,7 +242,7 @@ def a_star_without_travel(
     if a_star_compute_shortest_path(
         draw_func, env, g_dict, f_dict, open_set_heap
     ):
-        reconstruct_path(start, end, g_dict, draw_func)
+        reconstruct_path(env, g_dict, draw_func)
         end.make_end()
         start.make_start()
 
