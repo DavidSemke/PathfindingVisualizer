@@ -3,7 +3,7 @@ from search_tools import *
 
 # nodes are prioritized by their keys, where smaller key values are 
 # of greater priority
-def calculate_keys_lpa(node, end, g_dict, rhs_dict):
+def lpa_calculate_keys(node, end, g_dict, rhs_dict):
     global ACCESSES
 
     g_value = g_dict[node]
@@ -21,7 +21,7 @@ def calculate_keys_lpa(node, end, g_dict, rhs_dict):
     return key1, key2
 
 
-def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
+def lpa_update_node(node_to_update, end, g_dict, rhs_dict, open_set):
     global COUNT
     global PERCOLATES
     global ACCESSES
@@ -44,7 +44,7 @@ def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
     ACCESSES += 2
 
     if locally_inconsistent and index_of_item is not None:
-        k1, k2 = calculate_keys_lpa(
+        k1, k2 = lpa_calculate_keys(
             node_to_update, end, g_dict, rhs_dict
         )
         PERCOLATES += heap.heapremove(open_set, index_of_item)
@@ -54,7 +54,7 @@ def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
         COUNT += 1
 
     elif locally_inconsistent and index_of_item is None:
-        k1, k2 = calculate_keys_lpa(
+        k1, k2 = lpa_calculate_keys(
             node_to_update, end, g_dict, rhs_dict
         )
         PERCOLATES += heap.heappush(
@@ -71,7 +71,7 @@ def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
 
 #  draw_func is necessary for updating grid
 #  start and end are start and goal nodes
-def lpa_star_compute_shortest_path(
+def lpa_shortest_path(
         draw_func, g_dict, rhs_dict, open_set, start, end
 ):
     global PERCOLATES
@@ -80,7 +80,7 @@ def lpa_star_compute_shortest_path(
 
     # get top item in priority queue
     while (
-        (open_set and open_set[0][0] < calculate_keys_lpa(
+        (open_set and open_set[0][0] < lpa_calculate_keys(
         end, end, g_dict, rhs_dict))
         or rhs_dict[end] != g_dict[end]
     ):
@@ -103,7 +103,7 @@ def lpa_star_compute_shortest_path(
                     )
                     ACCESSES += 3
 
-                update_node_lpa(
+                lpa_update_node(
                     node, end, g_dict, rhs_dict, open_set
                 )
 
@@ -140,7 +140,7 @@ def lpa_star_compute_shortest_path(
                     rhs_dict[node] = min_dist + EDGE_COST
                     ACCESSES += 1
 
-                update_node_lpa(node, end, g_dict, rhs_dict, open_set)
+                lpa_update_node(node, end, g_dict, rhs_dict, open_set)
 
         EXPANSIONS += 1
 
@@ -158,7 +158,7 @@ def lpa_star_compute_shortest_path(
 
 
 # main method for LPA*
-def perform_lpa_star(draw_func, grid, start, end, invis_barriers):
+def lpa_star(draw_func, env):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
@@ -167,6 +167,11 @@ def perform_lpa_star(draw_func, grid, start, end, invis_barriers):
     EXPANSIONS = 0
     ACCESSES = 0
     COUNT = 0
+
+    grid = env['grid']
+    start = env['start']
+    end = env['end']
+    invis_barriers = env['invis_barriers']
 
     open_set_heap = []
     # create dictionary of g_values set to infinity
@@ -188,7 +193,7 @@ def perform_lpa_star(draw_func, grid, start, end, invis_barriers):
 
     invis_barriers_index = 0
 
-    lpa_star_compute_shortest_path(
+    lpa_shortest_path(
         draw_func, g_dict, rhs_dict, open_set_heap, start, end
     )
 
@@ -230,7 +235,7 @@ def perform_lpa_star(draw_func, grid, start, end, invis_barriers):
                 rhs_dict[n_neighbor] = min_dist + EDGE_COST
                 ACCESSES += 1
 
-            update_node_lpa(
+            lpa_update_node(
                 n_neighbor, end, g_dict, rhs_dict, open_set_heap
             )
 
@@ -240,7 +245,7 @@ def perform_lpa_star(draw_func, grid, start, end, invis_barriers):
             
         draw_func()
 
-        lpa_star_compute_shortest_path(
+        lpa_shortest_path(
             draw_func, g_dict, rhs_dict, open_set_heap, start, end
         )
 

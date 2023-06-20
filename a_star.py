@@ -1,7 +1,7 @@
 import min_heap as heap
 from search_tools import *
 
-def a_star_compute_shortest_path(
+def a_star_shortest_path(
         draw_func, start, end, g_dict, f_dict, open_set
 ):
     global PERCOLATES
@@ -61,7 +61,7 @@ def a_star_compute_shortest_path(
     return False
 
 
-def perform_a_star(draw_func, grid, start, end, invis_barriers, travel):
+def a_star(draw_func, env, travel):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
@@ -71,18 +71,16 @@ def perform_a_star(draw_func, grid, start, end, invis_barriers, travel):
     ACCESSES = 0
     COUNT = 0
 
-    g_dict = {node: float("inf") for row in grid for node in row}
-    f_dict = {node: float("inf") for row in grid for node in row}
+    g_dict = {node: float("inf") for row in env['grid'] for node in row}
+    f_dict = {node: float("inf") for row in env['grid'] for node in row}
 
     # if travel true, the agent will attempt to move from start to 
     # goal position; else, the shortest path is computed
     if travel:
-        a_star_with_travel(draw_func, grid, start, end, g_dict, f_dict)
+        a_star_with_travel(draw_func, env, g_dict, f_dict)
     
     else:
-        a_star_without_travel(
-            draw_func, grid, start, end, g_dict, f_dict, invis_barriers
-        )
+        a_star_without_travel(draw_func, env, g_dict, f_dict)
 
     print("Heap percolates: " + str(PERCOLATES))
     print("Node expansions: " + str(EXPANSIONS))
@@ -90,10 +88,14 @@ def perform_a_star(draw_func, grid, start, end, invis_barriers, travel):
 
 
 # compute shortest path with A*, and traverse to goal position
-def a_star_with_travel(draw_func, grid, start, end, g_dict, f_dict):
+def a_star_with_travel(draw_func, env, g_dict, f_dict):
     global PERCOLATES
     global ACCESSES
     global COUNT
+
+    grid = env['grid']
+    start = env['start']
+    end = env['end']
 
     origin = start
 
@@ -113,8 +115,11 @@ def a_star_with_travel(draw_func, grid, start, end, g_dict, f_dict):
             
             for n_neighbor in n.neighbors:
                 n_neighbor.update_neighbors(grid)
+    
+    SUCCESS = "Journey completed via A* (with travel)."
+    FAIL = "A* (with travel) failed to find path to goal."
 
-    if a_star_compute_shortest_path(
+    if a_star_shortest_path(
         draw_func, end, start, g_dict, f_dict, open_set_heap
     ):
         
@@ -201,7 +206,7 @@ def a_star_with_travel(draw_func, grid, start, end, g_dict, f_dict):
                 f_dict[end] = h
                 ACCESSES += 2
 
-                if not a_star_compute_shortest_path(
+                if not a_star_shortest_path(
                     draw_func, end, start, g_dict, f_dict, open_set_heap
                 ):
                     # leave while loop if a path to start from goal 
@@ -210,25 +215,28 @@ def a_star_with_travel(draw_func, grid, start, end, g_dict, f_dict):
 
         if start is end:
             origin.make_original_start()
-            print("Journey completed via A* (with travel).")
+            print(SUCCESS)
         
         else:
-            print("Journey unsuccessful - A* (with travel) failed to find path to goal.")
+            print(FAIL)
 
     else:
-        print("A* (with travel) failed to find path to goal.")
+        print(FAIL)
 
 
 # compute shortest path with A*, and adapt path to changes if they 
 # occur (without traversing to goal)
-def a_star_without_travel(
-        draw_func, grid, start, end, g_dict, f_dict, invis_barriers
-):
+def a_star_without_travel(draw_func, env, g_dict, f_dict):
     global PERCOLATES
     global ACCESSES
     global COUNT
 
     ACCESSES += 2
+
+    grid = env['grid']
+    start = env['start']
+    end = env['end']
+    invis_barriers = env['invis_barriers']
 
     g_dict[start] = 0
     f_dict[start] = heuristic(start.get_pos(), end.get_pos())
@@ -238,7 +246,7 @@ def a_star_without_travel(
 
     invis_barriers_index = 0
 
-    if a_star_compute_shortest_path(
+    if a_star_shortest_path(
         draw_func, start, end, g_dict, f_dict, open_set_heap
     ):
         reconstruct_path(start, end, g_dict, draw_func)
@@ -300,7 +308,7 @@ def a_star_without_travel(
 
         ACCESSES += 2
 
-        if a_star_compute_shortest_path(
+        if a_star_shortest_path(
             draw_func, start, end, g_dict, f_dict, open_set_heap
         ):
             reconstruct_path(start, end, g_dict, draw_func)

@@ -5,7 +5,7 @@ from search_tools import *
 # adjusts the heuristic key values in order to avoid reordering heap
 K_VARIABLE = 0
 
-def calculate_keys_d_lite(node, start, g_dict, rhs_dict):
+def d_lite_calculate_keys(node, start, g_dict, rhs_dict):
     global ACCESSES
 
     g_value = g_dict[node]
@@ -20,7 +20,7 @@ def calculate_keys_d_lite(node, start, g_dict, rhs_dict):
     return key1, key2
 
 
-def update_node_d_lite(
+def d_lite_update_node(
         node_to_update, start, g_dict, rhs_dict, open_set
 ):
     global PERCOLATES
@@ -45,7 +45,7 @@ def update_node_d_lite(
     ACCESSES += 2
 
     if locally_inconsistent and index_of_item is not None:
-        k1, k2 = calculate_keys_d_lite(
+        k1, k2 = d_lite_calculate_keys(
             node_to_update, start, g_dict, rhs_dict
         )
         PERCOLATES += heap.heapremove(open_set, index_of_item)
@@ -55,7 +55,7 @@ def update_node_d_lite(
         COUNT += 1
 
     elif locally_inconsistent and index_of_item is None:
-        k1, k2 = calculate_keys_d_lite(
+        k1, k2 = d_lite_calculate_keys(
             node_to_update, start, g_dict, rhs_dict
         )
         PERCOLATES += heap.heappush(
@@ -73,7 +73,7 @@ def update_node_d_lite(
         PERCOLATES += heap.heapremove(open_set, index_of_item)
 
 
-def d_star_lite_compute_shortest_path(
+def d_lite_shortest_path(
         draw_func, g_dict, rhs_dict, open_set, start, end
 ):
     global PERCOLATES
@@ -82,13 +82,13 @@ def d_star_lite_compute_shortest_path(
     global COUNT
 
     while (
-        (open_set and open_set[0][0] < calculate_keys_d_lite(
+        (open_set and open_set[0][0] < d_lite_calculate_keys(
         start, start, g_dict, rhs_dict))
         or rhs_dict[start] != g_dict[start]
     ):
         current = open_set[0][2]
         k_old = open_set[0][0]
-        k_new = calculate_keys_d_lite(current, start, g_dict, rhs_dict)
+        k_new = d_lite_calculate_keys(current, start, g_dict, rhs_dict)
 
         ACCESSES += 2  # referring to those in while loop check
 
@@ -115,7 +115,7 @@ def d_star_lite_compute_shortest_path(
                         )
                         ACCESSES += 3
 
-                    update_node_d_lite(
+                    d_lite_update_node(
                         node, start, g_dict, rhs_dict, open_set
                     )
 
@@ -152,7 +152,7 @@ def d_star_lite_compute_shortest_path(
                         ACCESSES += 1
                         rhs_dict[node] = min_dist + EDGE_COST
 
-                    update_node_d_lite(
+                    d_lite_update_node(
                         node, start, g_dict, rhs_dict, open_set
                     )
 
@@ -165,7 +165,7 @@ def d_star_lite_compute_shortest_path(
     return g_dict[start] != float('inf')
 
 
-def perform_d_star_lite(draw_func, grid, start, end):
+def d_star_lite(draw_func, env):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
@@ -176,6 +176,10 @@ def perform_d_star_lite(draw_func, grid, start, end):
     ACCESSES = 0
     COUNT = 0
     K_VARIABLE = 0
+
+    grid = env['grid']
+    start = env['start']
+    end = env['end']
 
     # priority queue as a heap
     open_set_heap = []
@@ -206,8 +210,11 @@ def perform_d_star_lite(draw_func, grid, start, end):
 
     draw_func()
 
+    SUCCESS = "Journey completed via D* Lite."
+    FAIL = "Journey unsuccessful - D* Lite failed to find path to goal."
+
     # compute_shortest_path() returns True if a path, ultimately the shortest, to the goal is found
-    if d_star_lite_compute_shortest_path(
+    if d_lite_shortest_path(
         draw_func, g_dict, rhs_dict, open_set_heap, start, end
     ):
         
@@ -286,7 +293,7 @@ def perform_d_star_lite(draw_func, grid, start, end):
                             ACCESSES += 1
                             rhs_dict[n_neighbor] = min_dist + EDGE_COST
 
-                        update_node_d_lite(
+                        d_lite_update_node(
                             n_neighbor, start, g_dict, rhs_dict, 
                             open_set_heap
                         )
@@ -295,7 +302,7 @@ def perform_d_star_lite(draw_func, grid, start, end):
                     [node.reset() for row in grid for node in row 
                      if l(node)]
 
-                if not d_star_lite_compute_shortest_path(
+                if not d_lite_shortest_path(
                     draw_func, g_dict, rhs_dict, open_set_heap,
                     start, end
                 ):
@@ -305,12 +312,12 @@ def perform_d_star_lite(draw_func, grid, start, end):
 
         if start is end:
             true_origin.make_original_start()
-            print("Journey completed via D* Lite.")
+            print(SUCCESS)
         
         else:
-            print("Journey unsuccessful - D* Lite failed to find path to goal.")
+            print(FAIL)
     else:
-        print("Journey unsuccessful - D* Lite failed to find path to goal.")
+        print(FAIL)
 
     print("Heap percolates: " + str(PERCOLATES))
     print("Node expansions: " + str(EXPANSIONS))

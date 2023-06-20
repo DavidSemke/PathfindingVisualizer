@@ -1,8 +1,8 @@
 import pygame as pg
 from grid import *
-from a_star import perform_a_star
-from lpa_star import perform_lpa_star
-from d_star_lite import perform_d_star_lite
+from a_star import a_star
+from lpa_star import lpa_star
+from d_star_lite import d_star_lite
 
 '''The following are the available command keys for this pathfinding 
 program.'''
@@ -64,137 +64,133 @@ program.'''
     # Initiate D* Lite.
 
 
-def handle_left_click(start, end, node, barriers_are_vis):
-    
-    if not (start or end):
-        start = node
-        start.make_start()
+def handle_left_click(node, env):
 
-    elif not (end or node is start):
-        end = node
-        end.make_end()
+    if not (env['start'] or env['end']):
+        env['start'] = node
+        node.make_start()
 
-    elif not (start or node is end):
-        start = node
-        start.make_start()
+    elif not (env['end'] or node is env['start']):
+        env['end'] = node
+        node.make_end()
 
-    elif not (node is end or node is start):
+    elif not (env['start'] or node is env['end']):
+        env['start'] = node
+        node.make_start()
+
+    elif not (node is env['end'] or node is env['start']):
         
-        if barriers_are_vis:
+        if env['barriers_are_vis']:
             node.make_vis_barrier()
         
         else:
             node.make_invis_barrier()
-    
-    return start, end
 
 
-def handle_right_click(start, end, node):
+def handle_right_click(node, env):
     node.reset()
     
-    if node is start:
-        start = None
+    if node is env['start']:
+        env['start'] = None
     
-    elif node is end:
-        end = None
-
-    return start, end
+    elif node is env['end']:
+        env['end'] = None
 
 
-def handle_search_keys(event, grid, start, end, invis_barriers):
+def handle_search_keys(event, env):
     
-    [node.update_neighbors(grid) for row in grid for node in row]
+    [node.update_neighbors(env['grid']) 
+     for row in env['grid'] for node in row]
     
-    start.make_start()
-    end.make_end()
-
-    prior_grid = prior_start = prior_end = None
+    env['start'].make_start()
+    env['end'].make_end()
 
     # do A* without traversal to goal
     if event.key == pg.K_1:
-        prior_grid, prior_start, prior_end = duplicate_grid(grid)
-        invis_barriers = [
-            node for row in grid for node in row 
+        grid, start, end = duplicate_grid(env['grid'])
+        env['prior_grid'] = grid
+        env['prior_start'] = start
+        env['prior_end'] = end
+        env['invis_barriers'] = [
+            node for row in env['grid'] for node in row 
             if node.is_invis_barrier()
         ]
         
-        perform_a_star(lambda: draw(grid), grid, start, end, invis_barriers, False)
+        a_star(lambda: draw(env['grid']), env, False)
 
     # do A* with traversal to goal
     elif event.key == pg.K_2:
-        prior_grid, prior_start, prior_end = duplicate_grid(grid)
-        invis_barriers = [
-            node for row in grid for node in row 
+        grid, start, end = duplicate_grid(env['grid'])
+        env['prior_grid'] = grid
+        env['prior_start'] = start
+        env['prior_end'] = end
+        env['invis_barriers'] = [
+            node for row in env['grid'] for node in row 
             if node.is_invis_barrier()
         ]
 
-        perform_a_star(lambda: draw(grid), grid, start, end, invis_barriers, True)
+        a_star(lambda: draw(env['grid']), env, True)
 
     # do LPA*
     elif event.key == pg.K_3:
-        prior_grid, prior_start, prior_end = duplicate_grid(grid)
-        invis_barriers = [
-            node for row in grid for node in row 
+        grid, start, end = duplicate_grid(env['grid'])
+        env['prior_grid'] = grid
+        env['prior_start'] = start
+        env['prior_end'] = end
+        env['invis_barriers'] = [
+            node for row in env['grid'] for node in row 
             if node.is_invis_barrier()
         ]
 
-        perform_lpa_star(lambda: draw(grid), grid, start, end, invis_barriers)
+        lpa_star(lambda: draw(env['grid']), env)
 
     # do D* Lite
     elif event.key == pg.K_4:
-        prior_grid, prior_start, prior_end = duplicate_grid(grid)
+        grid, start, end = duplicate_grid(env['grid'])
+        env['prior_grid'] = grid
+        env['prior_start'] = start
+        env['prior_end'] = end
         
-        perform_d_star_lite(lambda: draw(grid), grid, start, end)
-    
-    priors = None
-
-    if prior_grid:
-        priors = (prior_grid, prior_start, prior_end)
-    
-    return priors, invis_barriers 
+        d_star_lite(lambda: draw(env['grid']), env)
 
 
-def handle_prep_keys(
-        event, grid, start, end, prior_grid, prior_start, prior_end, barriers_are_vis
-):
+def handle_prep_keys(event, env):
     # clear grid
     if event.key == pg.K_c:
-        start = None
-        end = None
-        grid = make_grid()
+        env['start'] = None
+        env['end'] = None
+        env['grid'] = make_grid()
 
         # "safe clear" grid - remove everything except barriers, 
         # start, and end
     elif event.key == pg.K_s:
         l = lambda n: n.is_open() or n.is_closed() or n.is_path()
-        [node.reset() for row in grid for node in row if l(node)]
+        [node.reset() for row in env['grid'] for node in row if l(node)]
 
     # toggle barrier type (vis or invis)
     elif event.key == pg.K_z:
-        barriers_are_vis = not barriers_are_vis
+        env['barriers_are_vis'] = not env['barriers_are_vis']
 
     # generate barriers
     elif event.key == pg.K_g:
-        start = None
-        end = None
-        grid = make_grid()
-        generate_barriers(grid, barriers_are_vis)
+        env['start'] = None
+        env['end'] = None
+        env['grid'] = make_grid()
+        generate_barriers(env['grid'], env['barriers_are_vis'])
 
     # generate a mix of invis and vis barriers
     elif event.key == pg.K_m:
-        start = None
-        end = None
-        grid = make_grid()
-        generate_barriers_mixed(grid)
+        env['start'] = None
+        env['end'] = None
+        env['grid'] = make_grid()
+        generate_barriers_mixed(env['grid'])
 
     # restore grid to original version preceding latest algorithm 
     # visualization
-    elif event.key == pg.K_b:
-        grid = prior_grid
-        start = prior_start
-        end = prior_end
-    
-    return grid, start, end, barriers_are_vis
+    elif event.key == pg.K_b and env['prior_grid']:
+        env['grid'] = env['prior_grid']
+        env['start'] = env['prior_start']
+        env['end'] = env['prior_end']
 
 
 def handle_interaction(event, env):
@@ -211,16 +207,9 @@ def handle_interaction(event, env):
     if event.type == pg.KEYDOWN:
         
         if env['start'] and env['end']:
-            priors, barriers = handle_search_keys(event, grid, start, end, invis_barriers)
+            handle_search_keys(event, env)
 
-            if priors:
-                prior_grid, prior_start, prior_end = priors
-            
-            invis_barriers = barriers
-
-        grid, start, end, barriers_are_vis = handle_prep_keys(event, grid, start, end, prior_grid, prior_start, prior_end, barriers_are_vis)
-    
-    return grid, start, end, prior_grid, prior_start, prior_end, barriers_are_vis, invis_barriers
+        handle_prep_keys(event, env)
 
 
 def main():
