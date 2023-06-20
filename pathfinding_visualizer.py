@@ -64,8 +64,7 @@ program.'''
     # Initiate D* Lite.
 
 
-def handle_left_click(env, node, barriers_are_vis):
-    grid, start, end = env
+def handle_left_click(start, end, node, barriers_are_vis):
     
     if not (start or end):
         start = node
@@ -87,11 +86,10 @@ def handle_left_click(env, node, barriers_are_vis):
         else:
             node.make_invis_barrier()
     
-    return (grid, start, end)
+    return start, end
 
 
-def handle_right_click(env, node):
-    grid, start, end = env
+def handle_right_click(start, end, node):
     node.reset()
     
     if node is start:
@@ -100,62 +98,65 @@ def handle_right_click(env, node):
     elif node is end:
         end = None
 
-    return (grid, start, end)
+    return start, end
 
 
-def handle_search_keys(event, env, invis_barriers):
-    grid, start, end = env
+def handle_search_keys(event, grid, start, end, invis_barriers):
     
     [node.update_neighbors(grid) for row in grid for node in row]
     
     start.make_start()
     end.make_end()
-    prior_env = None
+
+    prior_grid = prior_start = prior_end = None
 
     # do A* without traversal to goal
     if event.key == pg.K_1:
-        prior_env = duplicate_grid(grid)
+        prior_grid, prior_start, prior_end = duplicate_grid(grid)
         invis_barriers = [
             node for row in grid for node in row 
             if node.is_invis_barrier()
         ]
         
-        perform_a_star(lambda: draw(grid), env, invis_barriers, False)
+        perform_a_star(lambda: draw(grid), grid, start, end, invis_barriers, False)
 
     # do A* with traversal to goal
     elif event.key == pg.K_2:
-        prior_env = duplicate_grid(grid)
+        prior_grid, prior_start, prior_end = duplicate_grid(grid)
         invis_barriers = [
             node for row in grid for node in row 
             if node.is_invis_barrier()
         ]
 
-        perform_a_star(lambda: draw(grid), env, invis_barriers, True)
+        perform_a_star(lambda: draw(grid), grid, start, end, invis_barriers, True)
 
     # do LPA*
     elif event.key == pg.K_3:
-        prior_env = duplicate_grid(grid)
+        prior_grid, prior_start, prior_end = duplicate_grid(grid)
         invis_barriers = [
             node for row in grid for node in row 
             if node.is_invis_barrier()
         ]
 
-        perform_lpa_star(lambda: draw(grid), env, invis_barriers)
+        perform_lpa_star(lambda: draw(grid), grid, start, end, invis_barriers)
 
     # do D* Lite
     elif event.key == pg.K_4:
-        prior_env = duplicate_grid(grid)
+        prior_grid, prior_start, prior_end = duplicate_grid(grid)
         
-        perform_d_star_lite(lambda: draw(grid), env)
+        perform_d_star_lite(lambda: draw(grid), grid, start, end)
     
-    return prior_env, invis_barriers
+    priors = None
+
+    if prior_grid:
+        priors = (prior_grid, prior_start, prior_end)
+    
+    return priors, invis_barriers 
 
 
 def handle_prep_keys(
-        event, env, prior_env, barriers_are_vis
+        event, grid, start, end, prior_grid, prior_start, prior_end, barriers_are_vis
 ):
-    grid, start, end = env
-
     # clear grid
     if event.key == pg.K_c:
         start = None
@@ -189,72 +190,61 @@ def handle_prep_keys(
     # restore grid to original version preceding latest algorithm 
     # visualization
     elif event.key == pg.K_b:
-        prev_grid, prev_start, prev_end = prior_env
-        grid = prev_grid
-        start = prev_start
-        end = prev_end
+        grid = prior_grid
+        start = prior_start
+        end = prior_end
     
-    env = (grid, start, end)
-    
-    return (env, barriers_are_vis)
+    return grid, start, end, barriers_are_vis
 
 
-def handle_interaction(
-        event, env, prior_env, barriers_are_vis, invis_barriers
-):
-    grid, start, end = env
-
+def handle_interaction(event, env):
     pos = pg.mouse.get_pos()
     row, col = get_clicked_pos(pos)
-    node = grid[row][col]
+    node = env['grid'][row][col]
 
     if pg.mouse.get_pressed()[0]: # left click
-        env = handle_left_click(env, node, barriers_are_vis)
+        handle_left_click(node, env)
     
     elif pg.mouse.get_pressed()[2]:  # Right click
-        env = handle_right_click(env, node)
+        handle_right_click(node, env)
 
-    elif event.type == pg.KEYDOWN:
-
-        if start and end:
-            results = handle_search_keys(event, env, invis_barriers)
-            triple, barriers = results
-            prior_env = triple if triple else prior_env
-            invis_barriers = barriers
+    if event.type == pg.KEYDOWN:
         
-        results = handle_prep_keys(
-            event, env, prior_env, barriers_are_vis
-        )
-        env, barriers_are_vis = results
+        if env['start'] and env['end']:
+            priors, barriers = handle_search_keys(event, grid, start, end, invis_barriers)
+
+            if priors:
+                prior_grid, prior_start, prior_end = priors
+            
+            invis_barriers = barriers
+
+        grid, start, end, barriers_are_vis = handle_prep_keys(event, grid, start, end, prior_grid, prior_start, prior_end, barriers_are_vis)
     
-    return (env, prior_env, barriers_are_vis, invis_barriers)
+    return grid, start, end, prior_grid, prior_start, prior_end, barriers_are_vis, invis_barriers
 
 
 def main():
-    grid = make_grid()
-    start = None
-    end = None
     run = True
-    barriers_are_vis = True
-    invis_barriers = []
-    env = (grid, start, end)
-    prior_env = env
+    env = {
+        'grid': make_grid(),
+        'start': None,
+        'end': None,
+        'prior_grid': None,
+        'prior_start': None,
+        'prior_end': None,
+        'barriers_are_vis': True,
+        'invis_barriers': []
+    }
 
     while run:
-        grid, _, _ = env
-        draw(grid)
+        draw(env['grid'])
 
         for event in pg.event.get():
 
             if event.type == pg.QUIT:
                 run = False
 
-            results = handle_interaction(
-                event, env, prior_env, barriers_are_vis, 
-                invis_barriers
-            )
-
-            env, prior_env, barriers_are_vis, invis_barriers = results
+            handle_interaction(event, env)
 
     pg.quit()
 

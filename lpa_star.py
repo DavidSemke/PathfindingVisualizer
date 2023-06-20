@@ -1,4 +1,4 @@
-import min_heap
+import min_heap as heap
 from search_tools import *
 
 # nodes are prioritized by their keys, where smaller key values are 
@@ -10,10 +10,8 @@ def calculate_keys_lpa(node, end, g_dict, rhs_dict):
     rhs_value = rhs_dict[node]
     
     # f_value correspondence
-    key1 = (
-        min(g_value, rhs_value) 
-        + heuristic(end.get_pos(), node.get_pos())
-    )
+    h = heuristic(end.get_pos(), node.get_pos())
+    key1 = min(g_value, rhs_value) + h
     
     # g_value correspondence
     key2 = min(g_value, rhs_value)
@@ -49,8 +47,8 @@ def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
         k1, k2 = calculate_keys_lpa(
             node_to_update, end, g_dict, rhs_dict
         )
-        PERCOLATES += min_heap.heapremove(open_set, index_of_item)
-        PERCOLATES += min_heap.heappush(
+        PERCOLATES += heap.heapremove(open_set, index_of_item)
+        PERCOLATES += heap.heappush(
             open_set, ((k1, k2), COUNT, node_to_update)
         )
         COUNT += 1
@@ -59,7 +57,7 @@ def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
         k1, k2 = calculate_keys_lpa(
             node_to_update, end, g_dict, rhs_dict
         )
-        PERCOLATES += min_heap.heappush(
+        PERCOLATES += heap.heappush(
             open_set, ((k1, k2), COUNT, node_to_update)
         )
         COUNT += 1
@@ -68,19 +66,17 @@ def update_node_lpa(node_to_update, end, g_dict, rhs_dict, open_set):
             node_to_update.make_open()
 
     elif not locally_inconsistent and index_of_item is not None:
-        PERCOLATES += min_heap.heapremove(open_set, index_of_item)
+        PERCOLATES += heap.heapremove(open_set, index_of_item)
 
 
 #  draw_func is necessary for updating grid
 #  start and end are start and goal nodes
 def lpa_star_compute_shortest_path(
-        draw_func, g_dict, rhs_dict, open_set, env
+        draw_func, g_dict, rhs_dict, open_set, start, end
 ):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
-
-    _, start, end = env
 
     # get top item in priority queue
     while (
@@ -95,7 +91,7 @@ def lpa_star_compute_shortest_path(
 
         if g_dict[current] > rhs_dict[current]:
             g_dict[current] = rhs_dict[current]
-            PERCOLATES += min_heap.heappop(open_set)[1]
+            PERCOLATES += heap.heappop(open_set)[1]
             ACCESSES += 2
             
             for node in current.neighbors:
@@ -103,7 +99,7 @@ def lpa_star_compute_shortest_path(
                 if node is not start:
                     rhs_dict[node] = (
                         min(rhs_dict[node], 
-                        g_dict[current] + NODE_TO_NODE_DIST)
+                        g_dict[current] + EDGE_COST)
                     )
                     ACCESSES += 3
 
@@ -129,19 +125,19 @@ def lpa_star_compute_shortest_path(
                 
                 if (
                     (rhs_dict[node] == old_g_value +
-                    NODE_TO_NODE_DIST or node is current)
+                    EDGE_COST or node is current)
                     and node is not start
                 ):
-                    min_distance = float("inf")
+                    min_dist = float("inf")
                     
                     for n in node.neighbors:
                         ACCESSES += 1
-                        possible_new_min_distance = g_dict[n]
+                        poss_new_min_dist = g_dict[n]
                         
-                        if possible_new_min_distance < min_distance:
-                            min_distance = possible_new_min_distance
+                        if poss_new_min_dist < min_dist:
+                            min_dist = poss_new_min_dist
 
-                    rhs_dict[node] = min_distance + NODE_TO_NODE_DIST
+                    rhs_dict[node] = min_dist + EDGE_COST
                     ACCESSES += 1
 
                 update_node_lpa(node, end, g_dict, rhs_dict, open_set)
@@ -154,7 +150,7 @@ def lpa_star_compute_shortest_path(
 
     if g_dict[end] == float('inf'): return False
     
-    reconstruct_path(env, g_dict, draw_func)
+    reconstruct_path(start, end, g_dict, draw_func)
     end.make_end()
     start.make_start()
          
@@ -162,7 +158,7 @@ def lpa_star_compute_shortest_path(
 
 
 # main method for LPA*
-def perform_lpa_star(draw_func, env, invis_barriers):
+def perform_lpa_star(draw_func, grid, start, end, invis_barriers):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
@@ -171,8 +167,6 @@ def perform_lpa_star(draw_func, env, invis_barriers):
     EXPANSIONS = 0
     ACCESSES = 0
     COUNT = 0
-
-    grid, start, end = env
 
     open_set_heap = []
     # create dictionary of g_values set to infinity
@@ -188,15 +182,14 @@ def perform_lpa_star(draw_func, env, invis_barriers):
     rhs_dict[start] = 0
     ACCESSES += 1
 
-    open_set_heap.append((
-        (heuristic(end.get_pos(), start.get_pos()), 0), COUNT, start
-    ))
+    h = heuristic(end.get_pos(), start.get_pos())
+    open_set_heap.append(((h, 0), COUNT, start))
     COUNT += 1
 
     invis_barriers_index = 0
 
     lpa_star_compute_shortest_path(
-        draw_func, g_dict, rhs_dict, open_set_heap, env
+        draw_func, g_dict, rhs_dict, open_set_heap, start, end
     )
 
     while invis_barriers_index < len(invis_barriers):
@@ -208,7 +201,7 @@ def perform_lpa_star(draw_func, env, invis_barriers):
         for item in open_set_heap:
             
             if b is item[2]:
-                PERCOLATES += min_heap.heapremove(
+                PERCOLATES += heap.heapremove(
                     open_set_heap, index
                 )
                 break
@@ -222,19 +215,19 @@ def perform_lpa_star(draw_func, env, invis_barriers):
             ACCESSES += 2
             
             if (
-                rhs_dict[n_neighbor] == g_dict[b] + NODE_TO_NODE_DIST
+                rhs_dict[n_neighbor] == g_dict[b] + EDGE_COST
                 and n_neighbor is not start
             ):
-                min_distance = float("inf")
+                min_dist = float("inf")
                 
                 for neighbor_of_n_neighbor in n_neighbor.neighbors:
                     ACCESSES += 1
-                    possible_new_min_distance = g_dict[neighbor_of_n_neighbor]
+                    poss_new_min_dist = g_dict[neighbor_of_n_neighbor]
                     
-                    if possible_new_min_distance < min_distance:
-                        min_distance = possible_new_min_distance
+                    if poss_new_min_dist < min_dist:
+                        min_dist = poss_new_min_dist
                 
-                rhs_dict[n_neighbor] = min_distance + NODE_TO_NODE_DIST
+                rhs_dict[n_neighbor] = min_dist + EDGE_COST
                 ACCESSES += 1
 
             update_node_lpa(
@@ -242,14 +235,13 @@ def perform_lpa_star(draw_func, env, invis_barriers):
             )
 
         # clear previous activity
-        for node in [node for row in grid for node in row]:
-            if node.is_path() or node.is_closed() or node.is_open():
-                node.reset()
-
+        l = lambda n: n.is_path() or n.is_closed() or n.is_open()
+        [node.reset() for row in grid for node in row if l(node)]
+            
         draw_func()
 
         lpa_star_compute_shortest_path(
-            draw_func, g_dict, rhs_dict, open_set_heap, env
+            draw_func, g_dict, rhs_dict, open_set_heap, start, end
         )
 
     else:

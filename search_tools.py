@@ -1,5 +1,5 @@
 # universal edge cost (edges costing infinity are simply ignored)
-NODE_TO_NODE_DIST = 1
+EDGE_COST = 1
 
 '''The following are global counters.'''
 
@@ -29,19 +29,18 @@ def heuristic(p1, p2):
 # to reconstruct path, find the predecessor which minimizes g_value + edge cost, and
 # repeat until the predecessor is the start node
 # edge cost is fixed at NODE_TO_NODE_DISTANCE, so can just compare g-values
-def reconstruct_path(env, g_dict, draw_func):
-    _, start, end = env
+def reconstruct_path(start, end, g_dict, draw_func):
     current = end
     next_node = None
 
     while current is not start:
-        min_distance = float("inf")
+        min_dist = float("inf")
 
         for n in current.neighbors:
-            possible_new_min_distance = g_dict[n]
+            poss_new_min_dist = g_dict[n]
             
-            if possible_new_min_distance < min_distance:
-                min_distance = possible_new_min_distance
+            if poss_new_min_dist < min_dist:
+                min_dist = poss_new_min_dist
                 next_node = n
         
         current = next_node

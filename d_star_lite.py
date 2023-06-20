@@ -1,21 +1,18 @@
-import min_heap
+import min_heap as heap
 from search_tools import *
 
+# k_variable is the variable described in the D* Lite algorithm which 
+# adjusts the heuristic key values in order to avoid reordering heap
 K_VARIABLE = 0
 
-# k_variable is the variable described in the D* Lite algorithm which adjusts the heuristic key values
-# in order to avoid reordering heap
 def calculate_keys_d_lite(node, start, g_dict, rhs_dict):
     global ACCESSES
 
     g_value = g_dict[node]
     rhs_value = rhs_dict[node]
 
-    key1 = (
-        min(g_value, rhs_value) 
-        + heuristic(start.get_pos(), node.get_pos()) 
-        + K_VARIABLE
-    )
+    h = heuristic(start.get_pos(), node.get_pos())
+    key1 = min(g_value, rhs_value) + h + K_VARIABLE
     key2 = min(g_dict[node], rhs_dict[node])
 
     ACCESSES += 2
@@ -51,8 +48,8 @@ def update_node_d_lite(
         k1, k2 = calculate_keys_d_lite(
             node_to_update, start, g_dict, rhs_dict
         )
-        PERCOLATES += min_heap.heapremove(open_set, index_of_item)
-        PERCOLATES += min_heap.heappush(
+        PERCOLATES += heap.heapremove(open_set, index_of_item)
+        PERCOLATES += heap.heappush(
             open_set, ((k1, k2), COUNT, node_to_update)
         )
         COUNT += 1
@@ -61,7 +58,7 @@ def update_node_d_lite(
         k1, k2 = calculate_keys_d_lite(
             node_to_update, start, g_dict, rhs_dict
         )
-        PERCOLATES += min_heap.heappush(
+        PERCOLATES += heap.heappush(
             open_set, ((k1, k2), COUNT, node_to_update)
         )
         COUNT += 1
@@ -73,18 +70,16 @@ def update_node_d_lite(
             node_to_update.make_open()
 
     elif not locally_inconsistent and index_of_item is not None:
-        PERCOLATES += min_heap.heapremove(open_set, index_of_item)
+        PERCOLATES += heap.heapremove(open_set, index_of_item)
 
 
 def d_star_lite_compute_shortest_path(
-        draw_func, g_dict, rhs_dict, open_set, env
+        draw_func, g_dict, rhs_dict, open_set, start, end
 ):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
     global COUNT
-
-    _, start, end = env
 
     while (
         (open_set and open_set[0][0] < calculate_keys_d_lite(
@@ -98,7 +93,7 @@ def d_star_lite_compute_shortest_path(
         ACCESSES += 2  # referring to those in while loop check
 
         if k_old < k_new:
-            PERCOLATES += min_heap.heapreplace(
+            PERCOLATES += heap.heapreplace(
                 open_set, (k_new, COUNT, current)
             )[1]
             COUNT += 1
@@ -109,14 +104,14 @@ def d_star_lite_compute_shortest_path(
             if g_dict[current] > rhs_dict[current]:
                 ACCESSES += 2
                 g_dict[current] = rhs_dict[current]
-                PERCOLATES += min_heap.heappop(open_set)[1]
+                PERCOLATES += heap.heappop(open_set)[1]
                 
                 for node in current.neighbors:
                     
                     if node is not end:
                         rhs_dict[node] = min(
                             rhs_dict[node], 
-                            g_dict[current] + NODE_TO_NODE_DIST
+                            g_dict[current] + EDGE_COST
                         )
                         ACCESSES += 3
 
@@ -142,7 +137,7 @@ def d_star_lite_compute_shortest_path(
                     ACCESSES += 1
                     
                     if (
-                        rhs_dict[node] == old_g_value + NODE_TO_NODE_DIST
+                        rhs_dict[node] == old_g_value + EDGE_COST
                         and node is not end
                     ):
                         min_dist = float("inf")
@@ -155,7 +150,7 @@ def d_star_lite_compute_shortest_path(
                                 min_dist = poss_new_min_dist
 
                         ACCESSES += 1
-                        rhs_dict[node] = min_dist + NODE_TO_NODE_DIST
+                        rhs_dict[node] = min_dist + EDGE_COST
 
                     update_node_d_lite(
                         node, start, g_dict, rhs_dict, open_set
@@ -170,7 +165,7 @@ def d_star_lite_compute_shortest_path(
     return g_dict[start] != float('inf')
 
 
-def perform_d_star_lite(draw_func, env):
+def perform_d_star_lite(draw_func, grid, start, end):
     global PERCOLATES
     global EXPANSIONS
     global ACCESSES
@@ -182,8 +177,6 @@ def perform_d_star_lite(draw_func, env):
     COUNT = 0
     K_VARIABLE = 0
 
-    grid, start, end = env
-
     # priority queue as a heap
     open_set_heap = []
     # create dictionary of g_values set to infinity
@@ -194,13 +187,13 @@ def perform_d_star_lite(draw_func, env):
     rhs_dict[end] = 0
     ACCESSES += 1
 
-    open_set_heap.append((
-        (heuristic(end.get_pos(), start.get_pos()), 0), COUNT, end
-    ))
+    h = heuristic(end.get_pos(), start.get_pos())
+    open_set_heap.append(((h, 0), COUNT, end))
     COUNT += 1
 
     origin = start
-    true_origin = origin  # origin will be updated, so this is to remember first origin position
+    # origin will be updated, so this is to remember first origin position
+    true_origin = origin  
 
     # make all invis barriers within range of agent's vision at start position visible
     for n in true_origin.neighbors:
@@ -215,7 +208,7 @@ def perform_d_star_lite(draw_func, env):
 
     # compute_shortest_path() returns True if a path, ultimately the shortest, to the goal is found
     if d_star_lite_compute_shortest_path(
-        draw_func, g_dict, rhs_dict, open_set_heap, env
+        draw_func, g_dict, rhs_dict, open_set_heap, start, end
     ):
         
         while start is not end:
@@ -236,10 +229,9 @@ def perform_d_star_lite(draw_func, env):
 
             draw_func()
 
-            # the next step simulates scanning for changes in 
-            # edge costs
-            # changes to graph can occur one node away from the 
-            # start node in any direction
+            # the next step simulates scanning for changes in edge costs
+            # changes to graph can occur one node away from the start
+            # node in any direction
             nodes_changed = []
             
             for n in start.neighbors:
@@ -253,7 +245,7 @@ def perform_d_star_lite(draw_func, env):
                     for item in open_set_heap:
                         
                         if n is item[2]:
-                            PERCOLATES += min_heap.heapremove(
+                            PERCOLATES += heap.heapremove(
                                 open_set_heap, index
                             )
                             break
@@ -261,9 +253,9 @@ def perform_d_star_lite(draw_func, env):
                         index += 1
 
             if nodes_changed:
-                K_VARIABLE += heuristic(
-                    origin.get_pos(), start.get_pos()
-                )
+                h = heuristic(origin.get_pos(), start.get_pos())
+                K_VARIABLE += h
+                
                 origin = start
 
                 # note that some code has been omitted here, as the 
@@ -279,7 +271,7 @@ def perform_d_star_lite(draw_func, env):
                         
                         if (
                             rhs_dict[n_neighbor] == g_dict[n] +
-                            NODE_TO_NODE_DIST
+                            EDGE_COST
                             and n_neighbor is not end
                         ):
                             min_dist = float("inf")
@@ -292,24 +284,20 @@ def perform_d_star_lite(draw_func, env):
                                     min_dist = poss_new_min_dist
 
                             ACCESSES += 1
-                            rhs_dict[n_neighbor] = (
-                                min_dist + NODE_TO_NODE_DIST
-                            )
+                            rhs_dict[n_neighbor] = min_dist + EDGE_COST
 
                         update_node_d_lite(
                             n_neighbor, start, g_dict, rhs_dict, 
                             open_set_heap
                         )
 
-                    for node in [
-                        node for row in grid for node in row
-                    ]:
-                        if node.is_closed() or node.is_open():
-                            node.reset()
+                    l = lambda n: n.is_closed() or n.is_open()
+                    [node.reset() for row in grid for node in row 
+                     if l(node)]
 
                 if not d_star_lite_compute_shortest_path(
                     draw_func, g_dict, rhs_dict, open_set_heap,
-                    env
+                    start, end
                 ):
                     # leave while loop if a path to start from goal 
                     # does not exist
