@@ -1,5 +1,39 @@
 from pygame import draw
 
+'''The following are descriptions of all node statuses.'''
+
+# Closed node - In the case of A*, a closed node is a node that has 
+# been visited due to its f-value being the smallest.
+# For LPA* and D* Lite, however, a closed node is a node that is 
+# locally consistent, where a node is locally consistent when its 
+# rhs-value is equal to its g-value.
+
+# Open node - In all algorithms, the open node is a node that is in 
+# the open set, which is a priority queue.
+
+# Path node - A path node signifies that the node is part of the path 
+# to the goal node (may not be part of the shortest
+# path, in the case of locating and moving to the goal).
+
+# invis Barrier - A node which is not able to be traversed to, 
+# but the agent is not yet aware of this.
+
+# vis barrier - A node which is not able to be traversed to, and 
+# the agent is aware of this.
+
+# Original start node - This node is simply the starting point for an 
+# algorithm which seeks to move the agent
+#   from the start node to the goal node.
+
+# Empty node - A node which has no unique status.
+
+# Start node - The node at which the agent starts calculating the 
+# shortest path. This node changes when the algorithm
+#   demands the agent to traverse from the start node to the end node.
+
+# End (goal) node - The node that the agent is attempting to find a 
+# shortest path to, and perhaps traverse to.
+
 '''The following dict provides colors signifying node status.'''
 
 colors = {
