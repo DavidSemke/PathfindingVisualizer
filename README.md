@@ -88,21 +88,30 @@ END/GOAL NODE
 
 RED
 - signifies a closed node
+
 GREEN 
 - signifies an open node
+
 BLUE
 - signifies an invisible barrier
+
 YELLOW
 - signifies the original start node if the start node is not static
+
 WHITE
 - signifies regular node (default color for a node)
+
 BLACK
 - signifies a visible barrier
+
 PURPLE
 - signifies a node which is part of the path taken to reach the goal
+
 ORANGE
 - signifies the start node
+
 GREY
 - for drawing the lines in the graph
+
 TURQUOISE
 - signifies the goal node
