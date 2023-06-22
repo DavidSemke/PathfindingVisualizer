@@ -152,18 +152,15 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
                 if n.is_invis_barrier():
                     n.make_vis_barrier()
                     nodes_changed.append(n)
-                    # remove from heap if present
-                    index = 0
                     
-                    for item in open_set_heap:
+                    # remove from heap if present
+                    for i, item in enumerate(open_set_heap):
                         
                         if n is item[2]:
                             PERCOLATES += heap.heapremove(
-                                open_set_heap, index
+                                open_set_heap, i
                             )
                             break
-                        
-                        index += 1
 
             if nodes_changed:
                 
@@ -179,7 +176,6 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
 
                 # reset everything and start search fresh
                 for row in grid:
-
                     for node in row:
 
                         if (
@@ -244,8 +240,6 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
     open_set_heap = [(0, COUNT, start)]
     COUNT += 1
 
-    invis_barriers_index = 0
-
     if a_star_shortest_path(
         draw_func, start, end, g_dict, f_dict, open_set_heap
     ):
@@ -255,21 +249,14 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
 
         draw_func()
 
-    while invis_barriers_index < len(invis_barriers):
-        b = invis_barriers[invis_barriers_index]
+    for b in invis_barriers:
         b.make_vis_barrier()
-        invis_barriers_index += 1
-        index = 0
         
-        for item in open_set_heap:
+        for i, item in enumerate(open_set_heap):
             
             if b is item[2]:
-                PERCOLATES += heap.heapremove(
-                    open_set_heap, index
-                )
+                PERCOLATES += heap.heapremove(open_set_heap, i)
                 break
-
-            index += 1
 
         b.update_neighbors(grid)
 

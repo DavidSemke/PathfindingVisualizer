@@ -1,4 +1,5 @@
 import min_heap as heap
+from grid import reset_nodes
 from search_tools import *
 
 # k_variable is the variable described in the D* Lite algorithm which 
@@ -27,16 +28,13 @@ def d_lite_update_node(
     global ACCESSES
     global COUNT
 
-    index_of_item = None
-    index = 0
-
-    for item in open_set:
+    item_index = None
+    
+    for i, item in enumerate(open_set):
         
         if node_to_update is item[2]:
-            index_of_item = index
+            item_index = i
             break
-        
-        index += 1
 
     locally_inconsistent = (
         g_dict[node_to_update] != rhs_dict[node_to_update]
@@ -44,17 +42,17 @@ def d_lite_update_node(
 
     ACCESSES += 2
 
-    if locally_inconsistent and index_of_item is not None:
+    if locally_inconsistent and item_index is not None:
         k1, k2 = d_lite_calculate_keys(
             node_to_update, start, g_dict, rhs_dict
         )
-        PERCOLATES += heap.heapremove(open_set, index_of_item)
+        PERCOLATES += heap.heapremove(open_set, item_index)
         PERCOLATES += heap.heappush(
             open_set, ((k1, k2), COUNT, node_to_update)
         )
         COUNT += 1
 
-    elif locally_inconsistent and index_of_item is None:
+    elif locally_inconsistent and item_index is None:
         k1, k2 = d_lite_calculate_keys(
             node_to_update, start, g_dict, rhs_dict
         )
@@ -69,8 +67,8 @@ def d_lite_update_node(
         ):
             node_to_update.make_open()
 
-    elif not locally_inconsistent and index_of_item is not None:
-        PERCOLATES += heap.heapremove(open_set, index_of_item)
+    elif not (locally_inconsistent or item_index is None):
+        PERCOLATES += heap.heapremove(open_set, item_index)
 
 
 def d_lite_shortest_path(
@@ -246,18 +244,15 @@ def d_star_lite(draw_func, env):
                 if n.is_invis_barrier():
                     n.make_vis_barrier()
                     nodes_changed.append(n)
-                    # remove from heap if present
-                    index = 0
                     
-                    for item in open_set_heap:
+                    # remove from heap if present                    
+                    for i, item in enumerate(open_set_heap):
                         
                         if n is item[2]:
                             PERCOLATES += heap.heapremove(
-                                open_set_heap, index
+                                open_set_heap, i
                             )
                             break
-                        
-                        index += 1
 
             if nodes_changed:
                 h = heuristic(origin.get_pos(), start.get_pos())
@@ -299,8 +294,7 @@ def d_star_lite(draw_func, env):
                         )
 
                     l = lambda n: n.is_closed() or n.is_open()
-                    [node.reset() for row in grid for node in row 
-                     if l(node)]
+                    reset_nodes(grid, l)
 
                 if not d_lite_shortest_path(
                     draw_func, g_dict, rhs_dict, open_set_heap,

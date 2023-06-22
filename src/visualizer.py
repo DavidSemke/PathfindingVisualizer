@@ -99,8 +99,9 @@ def handle_right_click(node, env):
 
 def handle_search_keys(event, env):
     
-    [node.update_neighbors(env['grid']) 
-     for row in env['grid'] for node in row]
+    for row in env['grid']:
+        for node in row:
+            node.update_neighbors(env['grid']) 
     
     env['start'].make_start()
     env['end'].make_end()
@@ -165,7 +166,7 @@ def handle_prep_keys(event, env):
         # start, and end
     elif event.key == pg.K_s:
         l = lambda n: n.is_open() or n.is_closed() or n.is_path()
-        [node.reset() for row in env['grid'] for node in row if l(node)]
+        reset_nodes(env['grid'], l)
 
     # toggle barrier type (vis or invis)
     elif event.key == pg.K_z:

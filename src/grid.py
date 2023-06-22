@@ -109,7 +109,7 @@ def generate_barriers(grid, barriers_are_vis):
 def generate_barriers_mixed(grid):
     
     for row in grid:
-        
+
         for node in row:
 
             if rand.randint(1, BARRIER_RAND_CONST) != 1: continue
@@ -119,3 +119,13 @@ def generate_barriers_mixed(grid):
             
             else:
                 node.make_invis_barrier()
+
+
+def reset_nodes(grid, filter):
+    
+    for row in grid:
+        
+        for node in row:
+            
+            if filter(node): 
+                node.reset()

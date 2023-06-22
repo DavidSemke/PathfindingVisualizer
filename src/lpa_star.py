@@ -1,4 +1,5 @@
 import min_heap as heap
+from grid import reset_nodes
 from search_tools import *
 
 # nodes are prioritized by their keys, where smaller key values are 
@@ -26,16 +27,13 @@ def lpa_update_node(node_to_update, end, g_dict, rhs_dict, open_set):
     global PERCOLATES
     global ACCESSES
 
-    index_of_item = None
-    index = 0
+    item_index = None
     
-    for item in open_set:
+    for i, item in enumerate(open_set):
         
         if node_to_update is item[2]:
-            index_of_item = index
+            item_index = i
             break
-        
-        index += 1
 
     locally_inconsistent = (
         g_dict[node_to_update] != rhs_dict[node_to_update]
@@ -43,17 +41,17 @@ def lpa_update_node(node_to_update, end, g_dict, rhs_dict, open_set):
 
     ACCESSES += 2
 
-    if locally_inconsistent and index_of_item is not None:
+    if locally_inconsistent and item_index is not None:
         k1, k2 = lpa_calculate_keys(
             node_to_update, end, g_dict, rhs_dict
         )
-        PERCOLATES += heap.heapremove(open_set, index_of_item)
+        PERCOLATES += heap.heapremove(open_set, item_index)
         PERCOLATES += heap.heappush(
             open_set, ((k1, k2), COUNT, node_to_update)
         )
         COUNT += 1
 
-    elif locally_inconsistent and index_of_item is None:
+    elif locally_inconsistent and item_index is None:
         k1, k2 = lpa_calculate_keys(
             node_to_update, end, g_dict, rhs_dict
         )
@@ -65,8 +63,8 @@ def lpa_update_node(node_to_update, end, g_dict, rhs_dict, open_set):
         if not node_to_update.is_invis_barrier():
             node_to_update.make_open()
 
-    elif not locally_inconsistent and index_of_item is not None:
-        PERCOLATES += heap.heapremove(open_set, index_of_item)
+    elif not (locally_inconsistent or item_index is None):
+        PERCOLATES += heap.heapremove(open_set, item_index)
 
 
 #  draw_func is necessary for updating grid
@@ -191,27 +189,20 @@ def lpa_star(draw_func, env):
     open_set_heap.append(((h, 0), COUNT, start))
     COUNT += 1
 
-    invis_barriers_index = 0
-
     lpa_shortest_path(
         draw_func, g_dict, rhs_dict, open_set_heap, start, end
     )
 
-    while invis_barriers_index < len(invis_barriers):
-        b = invis_barriers[invis_barriers_index]
+    for b in invis_barriers:
         b.make_vis_barrier()
-        invis_barriers_index += 1
-        index = 0
         
-        for item in open_set_heap:
+        for i, item in enumerate(open_set_heap):
             
             if b is item[2]:
                 PERCOLATES += heap.heapremove(
-                    open_set_heap, index
+                    open_set_heap, i
                 )
                 break
-            
-            index += 1
 
         b.update_neighbors(grid)
 
@@ -241,7 +232,7 @@ def lpa_star(draw_func, env):
 
         # clear previous activity
         l = lambda n: n.is_path() or n.is_closed() or n.is_open()
-        [node.reset() for row in grid for node in row if l(node)]
+        reset_nodes(grid, l)
             
         draw_func()
 
