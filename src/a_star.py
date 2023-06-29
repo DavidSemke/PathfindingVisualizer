@@ -27,9 +27,9 @@ def a_star_shortest_path(
             h = heuristic(neighbor.get_pos(), end.get_pos())
             f_dict[neighbor] = temp_g_score + h
 
-            neighbor_in_heap = [
-                item for item in open_set if neighbor is item[2]
-            ]
+            neighbor_in_heap = any(
+                neighbor is item[2] for item in open_set
+            )
 
             if neighbor_in_heap: continue
             
@@ -135,10 +135,9 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
             ACCESSES += 1
             poss_new_min_dist = g_dict[n]
             
-            if poss_new_min_dist >= min_dist: continue
-            
-            min_dist = poss_new_min_dist
-            next_start_node = n
+            if poss_new_min_dist < min_dist:
+                min_dist = poss_new_min_dist
+                next_start_node = n
 
         start.make_path()
         start = next_start_node
@@ -165,6 +164,7 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
                 if n is not item[2]: continue
                 
                 PERCOLATES += heap.heapremove(open_set_heap, i)
+                
                 break
 
         if not nodes_changed: continue
@@ -259,6 +259,7 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
             if not b is item[2]: continue
             
             PERCOLATES += heap.heapremove(open_set_heap, i)
+            
             break
 
         b.update_neighbors(grid)

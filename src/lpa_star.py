@@ -198,11 +198,13 @@ def lpa_star(draw_func, env):
         
         for i, item in enumerate(open_set_heap):
             
-            if b is item[2]:
-                PERCOLATES += heap.heapremove(
-                    open_set_heap, i
-                )
-                break
+            if not b is item[2]: continue
+            
+            PERCOLATES += heap.heapremove(
+                open_set_heap, i
+            )
+            
+            break
 
         b.update_neighbors(grid)
 
@@ -240,9 +242,8 @@ def lpa_star(draw_func, env):
             draw_func, g_dict, rhs_dict, open_set_heap, start, end
         )
 
-    else:
-        print("LPA* completed trials.")
-
+    print("LPA* completed trials.")
+    
     print("Heap percolates: " + str(PERCOLATES))
     print("Node expansions: " + str(EXPANSIONS))
     print("Node accesses: " + str(ACCESSES))

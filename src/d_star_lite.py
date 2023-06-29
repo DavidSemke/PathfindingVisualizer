@@ -200,116 +200,120 @@ def d_star_lite(draw_func, env):
     # make all invis barriers within range of agent's vision at start position visible
     for n in true_origin.neighbors:
         
-        if n.is_invis_barrier():
-            n.make_vis_barrier()
-            
-            for n_neighbor in n.neighbors:
-                n_neighbor.update_neighbors(grid)
+        if not n.is_invis_barrier(): continue
+        
+        n.make_vis_barrier()
+        
+        for n_neighbor in n.neighbors:
+            n_neighbor.update_neighbors(grid)
 
     draw_func()
 
     SUCCESS = "Journey completed via D* Lite."
     FAIL = "Journey unsuccessful - D* Lite failed to find path to goal."
 
-    # compute_shortest_path() returns True if a path, ultimately the shortest, to the goal is found
-    if d_lite_shortest_path(
+    path_exists = d_lite_shortest_path(
         draw_func, g_dict, rhs_dict, open_set_heap, start, end
-    ):
+    )
+
+    if not path_exists:
+        print(FAIL)
+        return
+
+    while start is not end:
+        next_start_node = None
+        min_dist = float("inf")
         
-        while start is not end:
-            next_start_node = None
-            min_dist = float("inf")
+        for n in start.neighbors:
+            ACCESSES += 1
+            poss_new_min_dist = g_dict[n]
             
-            for n in start.neighbors:
-                ACCESSES += 1
-                poss_new_min_dist = g_dict[n]
-                
-                if poss_new_min_dist < min_dist:
-                    min_dist = poss_new_min_dist
-                    next_start_node = n
+            if poss_new_min_dist < min_dist:
+                min_dist = poss_new_min_dist
+                next_start_node = n
 
-            start.make_path()
-            start = next_start_node
-            start.make_start()
+        start.make_path()
+        start = next_start_node
+        start.make_start()
 
-            draw_func()
+        draw_func()
 
-            # the next step simulates scanning for changes in edge costs
-            # changes to graph can occur one node away from the start
-            # node in any direction
-            nodes_changed = []
+        # the next step simulates scanning for changes in edge costs
+        # changes to graph can occur one node away from the start
+        # node in any direction
+        nodes_changed = []
+        
+        for n in start.neighbors:
             
-            for n in start.neighbors:
+            if not n.is_invis_barrier(): continue
+            
+            n.make_vis_barrier()
+            nodes_changed.append(n)
+            
+            # remove from heap if present                    
+            for i, item in enumerate(open_set_heap):
                 
-                if n.is_invis_barrier():
-                    n.make_vis_barrier()
-                    nodes_changed.append(n)
-                    
-                    # remove from heap if present                    
-                    for i, item in enumerate(open_set_heap):
-                        
-                        if n is item[2]:
-                            PERCOLATES += heap.heapremove(
-                                open_set_heap, i
-                            )
-                            break
-
-            if nodes_changed:
-                h = heuristic(origin.get_pos(), start.get_pos())
-                K_VARIABLE += h
+                if not n is item[2]: continue
                 
-                origin = start
+                PERCOLATES += heap.heapremove(
+                    open_set_heap, i
+                )
+                
+                break
 
-                # note that some code has been omitted here, as the 
-                # code would not apply to an environment with
-                # solely traversable and not traversable edges (edge 
-                # is either some constant or infinity)
-                for n in nodes_changed:
-                    n.update_neighbors(grid)
-                    
-                    for n_neighbor in n.neighbors:
-                        n_neighbor.update_neighbors(grid)
-                        ACCESSES += 2
-                        
-                        if (
-                            rhs_dict[n_neighbor] == g_dict[n] +
-                            EDGE_COST
-                            and n_neighbor is not end
-                        ):
-                            min_dist = float("inf")
-                            
-                            for neighbor_of_n_neighbor in n_neighbor.neighbors:
-                                ACCESSES += 1
-                                poss_new_min_dist = g_dict[neighbor_of_n_neighbor]
-                                
-                                if poss_new_min_dist < min_dist:
-                                    min_dist = poss_new_min_dist
+        if not nodes_changed: continue
+        
+        K_VARIABLE += heuristic(origin.get_pos(), start.get_pos())
+        
+        origin = start
 
-                            ACCESSES += 1
-                            rhs_dict[n_neighbor] = min_dist + EDGE_COST
-
-                        d_lite_update_node(
-                            n_neighbor, start, g_dict, rhs_dict, 
-                            open_set_heap
-                        )
-
-                    l = lambda n: n.is_closed() or n.is_open()
-                    reset_nodes(grid, l)
-
-                if not d_lite_shortest_path(
-                    draw_func, g_dict, rhs_dict, open_set_heap,
-                    start, end
+        # note that some code has been omitted here, as the 
+        # code would not apply to an environment with
+        # solely traversable and not traversable edges (edge 
+        # is either some constant or infinity)
+        for n in nodes_changed:
+            n.update_neighbors(grid)
+            
+            for n_neighbor in n.neighbors:
+                n_neighbor.update_neighbors(grid)
+                ACCESSES += 2
+                
+                if (
+                    rhs_dict[n_neighbor] == g_dict[n] +
+                    EDGE_COST
+                    and n_neighbor is not end
                 ):
-                    # leave while loop if a path to start from goal 
-                    # does not exist
-                    break  
+                    min_dist = float("inf")
+                    
+                    for neighbor_of_n_neighbor in n_neighbor.neighbors:
+                        ACCESSES += 1
+                        poss_new_min_dist = g_dict[neighbor_of_n_neighbor]
+                        
+                        if poss_new_min_dist < min_dist:
+                            min_dist = poss_new_min_dist
 
-        if start is end:
-            true_origin.make_original_start()
-            print(SUCCESS)
-        
-        else:
-            print(FAIL)
+                    ACCESSES += 1
+                    rhs_dict[n_neighbor] = min_dist + EDGE_COST
+
+                d_lite_update_node(
+                    n_neighbor, start, g_dict, rhs_dict, 
+                    open_set_heap
+                )
+
+            l = lambda n: n.is_closed() or n.is_open()
+            reset_nodes(grid, l)
+
+        path_exists = d_lite_shortest_path(
+            draw_func, g_dict, rhs_dict, open_set_heap,
+            start, end
+        )
+
+        if not path_exists: break
+
+    if start is end:
+        true_origin.make_original_start()
+        print(SUCCESS)
+    
     else:
         print(FAIL)
 
