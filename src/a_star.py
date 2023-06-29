@@ -19,33 +19,32 @@ def a_star_shortest_path(
         for neighbor in current.neighbors:
             temp_g_score = g_dict[current] + EDGE_COST
             ACCESSES += 2
+
+            if temp_g_score >= g_dict[neighbor]: continue
             
-            if temp_g_score < g_dict[neighbor]:
-                ACCESSES += 2
-                g_dict[neighbor] = temp_g_score
-                h = heuristic(neighbor.get_pos(), end.get_pos())
-                f_dict[neighbor] = temp_g_score + h
+            ACCESSES += 2
+            g_dict[neighbor] = temp_g_score
+            h = heuristic(neighbor.get_pos(), end.get_pos())
+            f_dict[neighbor] = temp_g_score + h
 
-                # check for presence of neighbor in heap
-                neighbor_not_in_heap = True
-                
-                for item in open_set:
-                    if neighbor is item[2]:
-                        neighbor_not_in_heap = False
+            neighbor_in_heap = [
+                item for item in open_set if neighbor is item[2]
+            ]
 
-                if neighbor_not_in_heap:
-                    ACCESSES += 1
-                    PERCOLATES += heap.heappush(
-                        open_set, (f_dict[neighbor], COUNT, neighbor)
-                    )
-                    COUNT += 1
-                    
-                    if not (
-                        neighbor.is_invis_barrier() 
-                        or neighbor.is_path() 
-                        or neighbor.is_start()
-                    ):
-                        neighbor.make_open()
+            if neighbor_in_heap: continue
+            
+            ACCESSES += 1
+            PERCOLATES += heap.heappush(
+                open_set, (f_dict[neighbor], COUNT, neighbor)
+            )
+            COUNT += 1
+            
+            if not (
+                neighbor.is_invis_barrier() 
+                or neighbor.is_path() 
+                or neighbor.is_start()
+            ):
+                neighbor.make_open()
 
         draw_func()
 
@@ -110,114 +109,117 @@ def a_star_with_travel(draw_func, env, g_dict, f_dict):
     # position vis
     for n in origin.neighbors:
         
-        if n.is_invis_barrier():
-            n.make_vis_barrier()
-            
-            for n_neighbor in n.neighbors:
-                n_neighbor.update_neighbors(grid)
+        if not n.is_invis_barrier(): continue
+        
+        n.make_vis_barrier()
+        
+        for n_neighbor in n.neighbors:
+            n_neighbor.update_neighbors(grid)
     
     SUCCESS = "Journey completed via A* (with travel)."
     FAIL = "A* (with travel) failed to find path to goal."
 
-    if a_star_shortest_path(
+    path_exists = a_star_shortest_path(
         draw_func, end, start, g_dict, f_dict, open_set_heap
-    ):
+    )
+
+    if not path_exists:
+        print(FAIL)
+        return
         
-        while start is not end:
-            next_start_node = None
-            min_dist = float("inf")
+    while start is not end:
+        next_start_node = None
+        min_dist = float("inf")
+        
+        for n in start.neighbors:
+            ACCESSES += 1
+            poss_new_min_dist = g_dict[n]
             
-            for n in start.neighbors:
-                ACCESSES += 1
-                poss_new_min_dist = g_dict[n]
-                
-                if poss_new_min_dist < min_dist:
-                    min_dist = poss_new_min_dist
-                    next_start_node = n
-
-            start.make_path()
-            start = next_start_node
-            start.make_start()
-
-            draw_func()
-
-            # the next step simulates scanning for changes in edge 
-            # costs
-            # changes to graph can occur one node away from the start 
-            # node in any direction
-            nodes_changed = []
+            if poss_new_min_dist >= min_dist: continue
             
-            for n in start.neighbors:
+            min_dist = poss_new_min_dist
+            next_start_node = n
+
+        start.make_path()
+        start = next_start_node
+        start.make_start()
+
+        draw_func()
+
+        # the next step simulates scanning for changes in edge 
+        # costs
+        # changes to graph can occur one node away from the start 
+        # node in any direction
+        nodes_changed = []
+        
+        for n in start.neighbors:
+            
+            if not n.is_invis_barrier(): continue
+            
+            n.make_vis_barrier()
+            nodes_changed.append(n)
+            
+            # remove from heap if present
+            for i, item in enumerate(open_set_heap):
                 
-                if n.is_invis_barrier():
-                    n.make_vis_barrier()
-                    nodes_changed.append(n)
-                    
-                    # remove from heap if present
-                    for i, item in enumerate(open_set_heap):
-                        
-                        if n is item[2]:
-                            PERCOLATES += heap.heapremove(
-                                open_set_heap, i
-                            )
-                            break
-
-            if nodes_changed:
+                if n is not item[2]: continue
                 
-                # note that some code has been omitted here, as the 
-                # code would not apply to an environment with
-                # solely traversable and not traversable edges (edge 
-                # is either some constant or infinity)
-                for n in nodes_changed:
-                    n.update_neighbors(grid)
-                    
-                    for n_neighbor in n.neighbors:
-                        n_neighbor.update_neighbors(grid)
+                PERCOLATES += heap.heapremove(open_set_heap, i)
+                break
 
-                # reset everything and start search fresh
-                for row in grid:
-                    for node in row:
+        if not nodes_changed: continue
+            
+        # note that some code has been omitted here, as the 
+        # code would not apply to an environment with
+        # solely traversable and not traversable edges (edge 
+        # is either some constant or infinity)
+        for n in nodes_changed:
+            n.update_neighbors(grid)
+            
+            for n_neighbor in n.neighbors:
+                n_neighbor.update_neighbors(grid)
 
-                        if (
-                            node.is_closed() 
-                            or node.is_open() 
-                            or node.is_path() 
-                            or node.is_start() 
-                            or node.is_end()
-                            or node.is_invis_barrier()
-                        ):
-                            
-                            if node.is_open() or node.is_closed():
-                                node.reset()
-                            
-                            ACCESSES += 2
-                            g_dict[node] = float("inf")
-                            f_dict[node] = float("inf")
+        # reset everything and start search fresh
+        for row in grid:
+            for node in row:
 
-                COUNT = 0
-                open_set_heap = [(0, COUNT, end)]
-                COUNT += 1
-                g_dict[end] = 0
-                h = heuristic(start.get_pos(), end.get_pos())
-                f_dict[end] = h
-                ACCESSES += 2
-
-                if not a_star_shortest_path(
-                    draw_func, end, start, g_dict, f_dict, open_set_heap
+                if not (
+                    node.is_closed() 
+                    or node.is_open() 
+                    or node.is_path() 
+                    or node.is_start() 
+                    or node.is_end()
+                    or node.is_invis_barrier()
                 ):
-                    # leave while loop if a path to start from goal 
-                    # does not exist
-                    break  
+                    continue
+                    
+                if node.is_open() or node.is_closed():
+                    node.reset()
+                
+                ACCESSES += 2
+                g_dict[node] = float("inf")
+                f_dict[node] = float("inf")
 
-        if start is end:
-            origin.make_original_start()
-            print(SUCCESS)
-        
-        else:
-            print(FAIL)
+        COUNT = 0
+        open_set_heap = [(0, COUNT, end)]
+        COUNT += 1
+        g_dict[end] = 0
+        f_dict[end] = heuristic(start.get_pos(), end.get_pos())
+        ACCESSES += 2
 
+        path_exists = a_star_shortest_path(
+            draw_func, end, start, g_dict, f_dict, open_set_heap
+        )
+
+        if not path_exists: break
+
+    if start is end:
+        origin.make_original_start()
+        print(SUCCESS)
+    
     else:
         print(FAIL)
+        
 
 
 # compute shortest path with A*, and adapt path to changes if they 
@@ -254,9 +256,10 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
         
         for i, item in enumerate(open_set_heap):
             
-            if b is item[2]:
-                PERCOLATES += heap.heapremove(open_set_heap, i)
-                break
+            if not b is item[2]: continue
+            
+            PERCOLATES += heap.heapremove(open_set_heap, i)
+            break
 
         b.update_neighbors(grid)
 
@@ -265,10 +268,9 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
 
         # clear previous activity
         for row in grid:
-
             for node in row:
 
-                if (
+                if not (
                     node.is_path() 
                     or node.is_closed() 
                     or node.is_open() 
@@ -276,16 +278,18 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
                     or node.is_end()
                     or node.is_invis_barrier()
                 ):
-                    if (
-                        node.is_closed() 
-                        or node.is_open() 
-                        or node.is_path()
-                    ):
-                        node.reset()
+                    continue
+                
+                if (
+                    node.is_closed() 
+                    or node.is_open() 
+                    or node.is_path()
+                ):
+                    node.reset()
 
-                    ACCESSES += 2
-                    g_dict[node] = float("inf")
-                    f_dict[node] = float("inf")
+                ACCESSES += 2
+                g_dict[node] = float("inf")
+                f_dict[node] = float("inf")
 
         COUNT = 0
         open_set_heap = [(0, COUNT, start)]
@@ -295,13 +299,15 @@ def a_star_without_travel(draw_func, env, g_dict, f_dict):
 
         ACCESSES += 2
 
-        if a_star_shortest_path(
+        path_exists = a_star_shortest_path(
             draw_func, start, end, g_dict, f_dict, open_set_heap
-        ):
-            reconstruct_path(start, end, g_dict, draw_func)
-            end.make_end()
-            start.make_start()
-            draw_func()
+        )
 
-    else:
-        print("A* (without travel) completed trials.")
+        if not path_exists: continue
+        
+        reconstruct_path(start, end, g_dict, draw_func)
+        end.make_end()
+        start.make_start()
+        draw_func()
+
+    print("A* (without travel) completed trials.")
